@@ -755,9 +755,9 @@
         /*
          * DOG WALKING MAP v2.0
          * 
-         * This version reads driver names from the 'Driver' column (column H)
+         * This version reads driver names from the 'Combined' column (column H)
          * 
-         * Required columns: Dog Name, Latitude, Longitude, Driver, Group
+         * Required columns: Dog Name, Latitude, Longitude, Combined, Group
          * Optional columns: Address, Callout, Dog ID, Capacity
          * 
          * NOTE: Sheet name is case-sensitive! Currently set to 'Mymap'
@@ -1172,8 +1172,11 @@
                 const drivers = new Set();
                 
                 state.allData.forEach(row => {
-                    if (row && row['Driver']) {
-                        const driverName = String(row['Driver']).trim();
+                    if (row && (row['Driver'] || row['Combined'])) {
+                        // Try Driver first, fall back to Combined if Driver is empty
+                        const driverName = (row['Driver'] && row['Driver'].trim()) ? 
+                                         row['Driver'].trim() : 
+                                         (row['Combined'] ? row['Combined'].trim() : '');
                         if (driverName) {
                             drivers.add(driverName);
                         }
@@ -2075,10 +2078,14 @@
                 
                 console.log('Headers from Google Sheet:', headers);
                 const driverIndex = headers.indexOf('Driver');
+                const combinedIndex = headers.indexOf('Combined');
                 console.log('Driver column index:', driverIndex, '(Column', driverIndex >= 0 ? String.fromCharCode(65 + driverIndex) : 'NOT FOUND', ')');
+                console.log('Combined column index:', combinedIndex, '(Column', combinedIndex >= 0 ? String.fromCharCode(65 + combinedIndex) : 'NOT FOUND', ')');
+                console.log('Column H (index 7) header is:', headers[7]);
+                console.log('Column G (index 6) header is:', headers[6]);
                 
                 // Validate required columns
-                const requiredColumns = ['Dog Name', 'Latitude', 'Longitude', 'Driver', 'Group'];
+                const requiredColumns = ['Dog Name', 'Latitude', 'Longitude', 'Combined', 'Group'];
                 const missingColumns = requiredColumns.filter(col => !headers.includes(col));
                 
                 if (missingColumns.length > 0) {
@@ -2101,13 +2108,16 @@
                             obj[header] = row[headerIndex] || '';
                         });
                         
-                        // Debug first few rows
+                        // Debug first few rows - show actual column values
                         if (index < 3) {
                             console.log(`Row ${index + 2} data:`, {
                                 'Dog Name': obj['Dog Name'],
                                 'Driver': obj['Driver'],
+                                'Combined': obj['Combined'],
                                 'Group': obj['Group'],
-                                'Raw Driver value (column H)': row[7] || 'EMPTY'
+                                'Column G (index 6) value': row[6] || 'EMPTY',
+                                'Column H (index 7) value': row[7] || 'EMPTY',
+                                'Column I (index 8) value': row[8] || 'EMPTY'
                             });
                         }
                         
@@ -2236,6 +2246,7 @@
                                 row['Dog Name'],
                                 row['Address'],
                                 row['Driver'],
+                                row['Combined'],
                                 row['Callout'],
                                 row['Dog ID']
                             ].filter(Boolean).join(' ').toLowerCase();
@@ -2267,7 +2278,8 @@
                         
                         // Driver filter
                         if (state.currentFilter !== null) {
-                            if (row['Driver'] !== state.currentFilter) {
+                            const rowDriver = row['Driver'] || row['Combined'] || '';
+                            if (rowDriver !== state.currentFilter) {
                                 return false;
                             }
                         }
@@ -2285,8 +2297,8 @@
                     const uniqueDrivers = new Set();
                     
                     state.allData.forEach(row => {
-                        if (row && row['Driver']) {
-                            const driver = row['Driver'].trim();
+                        if (row && (row['Driver'] || row['Combined'])) {
+                            const driver = row['Driver'] || row['Combined'] || '';
                             if (driver) uniqueDrivers.add(driver);
                         }
                     });
@@ -2547,9 +2559,9 @@
                             const groupCounts = { 1: 0, 2: 0, 3: 0, total: 0 };
                             
                             state.allData.forEach(row => {
-                                if (!row || !row['Driver']) return;
-                                    
-                                if (row['Driver'] === key) {
+                                if (!row) return;
+                                const rowDriver = row['Driver'] || row['Combined'] || '';    
+                                if (rowDriver === key) {
                                     groupCounts.total++;
                                     const group = parseGroup(row['Group']);
                                     
