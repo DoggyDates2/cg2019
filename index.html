@@ -755,21 +755,18 @@
         /*
          * DOG WALKING MAP v2.0
          * 
-         * IMPORTANT: This version expects separate 'Driver' and 'Group' columns
-         * in your Google Sheet instead of a combined 'Combined' column.
-         * 
-         * Your Apps Script should be updated to handle:
-         * - Updates to 'Driver' column (not 'Combined')
-         * - The 'Group' column is read-only (not updated by this app)
+         * This version reads driver names from the 'Driver' column (column H)
          * 
          * Required columns: Dog Name, Latitude, Longitude, Driver, Group
          * Optional columns: Address, Callout, Dog ID, Capacity
+         * 
+         * NOTE: Sheet name is case-sensitive! Currently set to 'Mymap'
          */
 
         // Configuration
         const CONFIG = Object.freeze({
             SHEET_ID: '17QMFeALjTRJZdMAn9fJPgeh7meL80scQ1KipKJ4jz2A',
-            WORKSHEET_NAME: 'Mymap',
+            WORKSHEET_NAME: 'Mymap',  // Case-sensitive sheet name
             API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
             APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx8j56q2vKpgm2jZu-bL3SxyySZccBK6F8XK-LinPmzHxEJDFh-aY-wIO6gVPfX8NH0dQ/exec',
             DEFAULT_LAT: 42.2968,
@@ -832,9 +829,6 @@
         };
 
         // Helper function to call Apps Script
-        // IMPORTANT: Your Apps Script should handle these column updates:
-        // - 'Driver' column (not 'Combined')
-        // - Updates should expect { 'Driver': value } in updatedData
         async function callAppsScript(payload) {
             try {
                 const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
@@ -1179,7 +1173,7 @@
                 
                 state.allData.forEach(row => {
                     if (row && row['Driver']) {
-                        const driverName = row['Driver'].trim();
+                        const driverName = String(row['Driver']).trim();
                         if (driverName) {
                             drivers.add(driverName);
                         }
@@ -1190,11 +1184,15 @@
                 const newColorMap = {};
                 
                 sortedDrivers.forEach((driver, index) => {
-                    if (state.driverColorMap[driver]) {
+                    // Keep existing custom colors
+                    if (state.customColors[driver]) {
+                        newColorMap[driver] = state.customColors[driver];
+                    } else if (state.driverColorMap[driver]) {
                         newColorMap[driver] = state.driverColorMap[driver];
                     } else if (index < ALL_COLORS.length) {
                         newColorMap[driver] = ALL_COLORS[index];
                     } else {
+                        // Generate a color for drivers beyond the palette
                         let hash = 0;
                         for (let i = 0; i < driver.length; i++) {
                             hash = ((hash << 5) - hash) + driver.charCodeAt(i);
@@ -1207,6 +1205,8 @@
                 
                 state.driverColorMap = newColorMap;
                 console.log('Assigned colors to', sortedDrivers.length, 'drivers');
+                console.log('Driver names found:', sortedDrivers);
+                console.log('Driver color map:', state.driverColorMap);
             } catch (error) {
                 console.error('Error assigning driver colors:', error);
                 state.driverColorMap = {};
@@ -1941,7 +1941,7 @@
                     
                     updates.push({
                         rowIndex: actualIndex,
-                        updatedData: { 'Driver': newDriverName }, // Updates Driver column only
+                        updatedData: { 'Driver': newDriverName },
                         oldData: { 'Driver': oldDriver }
                     });
                 });
@@ -2032,6 +2032,8 @@
                 
                 const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
                 
+                console.log(`Loading data from sheet: "${CONFIG.WORKSHEET_NAME}"`);
+                
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), 30000);
                 
@@ -2051,7 +2053,7 @@
                         if (res.status === 403) {
                             throw new Error('Access denied - check API key permissions');
                         } else if (res.status === 404) {
-                            throw new Error('Sheet not found - check Sheet ID and worksheet name');
+                            throw new Error(`Sheet not found - looking for worksheet "${CONFIG.WORKSHEET_NAME}" (case-sensitive) in spreadsheet ID: ${CONFIG.SHEET_ID}`);
                         } else if (res.status === 429) {
                             throw new Error('Rate limit exceeded - please wait and try again');
                         } else {
@@ -2071,9 +2073,14 @@
                 const headers = data.values[0];
                 const rows = data.values.slice(1);
                 
+                console.log('Headers from Google Sheet:', headers);
+                const driverIndex = headers.indexOf('Driver');
+                console.log('Driver column index:', driverIndex, '(Column', driverIndex >= 0 ? String.fromCharCode(65 + driverIndex) : 'NOT FOUND', ')');
+                
                 // Validate required columns
                 const requiredColumns = ['Dog Name', 'Latitude', 'Longitude', 'Driver', 'Group'];
                 const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+                
                 if (missingColumns.length > 0) {
                     throw new Error(`Missing required columns: ${missingColumns.join(', ')}`);
                 }
@@ -2093,6 +2100,16 @@
                         headers.forEach((header, headerIndex) => {
                             obj[header] = row[headerIndex] || '';
                         });
+                        
+                        // Debug first few rows
+                        if (index < 3) {
+                            console.log(`Row ${index + 2} data:`, {
+                                'Dog Name': obj['Dog Name'],
+                                'Driver': obj['Driver'],
+                                'Group': obj['Group'],
+                                'Raw Driver value (column H)': row[7] || 'EMPTY'
+                            });
+                        }
                         
                         if (!obj['Dog Name'] || obj['Dog Name'].trim() === '') {
                             invalidRows.push(index + 2);
@@ -2131,7 +2148,15 @@
                     state.dirtyData.clear();
                     state.lastUpdateTime = Date.now();
                     
-                    let message = `Loaded ${validRows} locations`;
+                    // Count unique drivers for debugging
+                    const uniqueDrivers = new Set();
+                    processedData.forEach(row => {
+                        if (row['Driver'] && row['Driver'].trim()) {
+                            uniqueDrivers.add(row['Driver'].trim());
+                        }
+                    });
+                    
+                    let message = `Loaded ${validRows} locations with ${uniqueDrivers.size} unique drivers`;
                     if (invalidRows.length > 0) {
                         const showRows = invalidRows.slice(0, 5);
                         const moreText = invalidRows.length > 5 ? ` and ${invalidRows.length - 5} more` : '';
@@ -2269,6 +2294,8 @@
                     uniqueDrivers.forEach(driver => {
                         state.colorMap[driver] = getDriverColor(driver);
                     });
+                    
+                    console.log(`Built color map for ${uniqueDrivers.size} drivers`);
                 } catch (colorMapError) {
                     console.error('Error building color map:', colorMapError);
                     state.colorMap = { 'default': '#999999' };
@@ -2285,6 +2312,7 @@
                 const batchSize = CONFIG.BATCH_SIZE;
                 const totalBatches = Math.ceil(state.filteredData.length / batchSize);
                 
+                let markerCount = 0;
                 for (let batch = 0; batch < totalBatches; batch++) {
                     if (state.operationId !== currentOpId) return;
                     
@@ -2312,6 +2340,12 @@
 
                                     const driver = row['Driver'] || '';
                                     let color = state.colorMap[driver] || '#999999';
+                                    
+                                    // Debug logging for first few markers
+                                    if (markerCount < 5) {
+                                        console.log(`Marker ${markerCount}: Driver="${driver}", Color="${color}", ColorMap has driver: ${driver in state.colorMap}`);
+                                    }
+                                    markerCount++;
                                     
                                     // Special case: Black for unassigned drivers
                                     if (driver.toLowerCase().includes('unassigned')) {
@@ -3006,7 +3040,7 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map v2.0 - Separate Driver and Group columns');
+        console.log('Dog Walking Map v2.0 - Reading from Driver column');
         console.log('Debug available via: dogWalkingMapDebug');
     </script>
 </body>
