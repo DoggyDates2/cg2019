@@ -1943,7 +1943,7 @@
                     state.dirtyData.add(actualIndex);
                     
                     updates.push({
-                        rowIndex: actualIndex,
+                        rowIndex: actualIndex + 2,  // Add 2: +1 for header row, +1 for 0-based to 1-based conversion
                         updatedData: { 'Driver': newDriverName },
                         oldData: { 'Driver': oldDriver }
                     });
@@ -2850,10 +2850,10 @@
                     }
                 }
                 
-                // Queue the save
+                // Queue the save (add 2 to convert to sheet row: +1 for header, +1 for 0-based to 1-based)
                 queueSave({
                     type: 'single',
-                    rowIndex: actualIndex,
+                    rowIndex: actualIndex + 2,
                     updatedData: { 'Driver': newDriverName },
                     oldData: { 'Driver': oldDriver }
                 });
