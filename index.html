@@ -641,20 +641,6 @@
             }
         }
 
-        /* Custom popup styles */
-        .custom-popup {
-            font-size: 13px;
-        }
-        
-        .custom-popup strong {
-            color: #333;
-        }
-        
-        .leaflet-popup-content {
-            margin: 13px 19px;
-            line-height: 1.4;
-        }
-
         /* Dark mode support */
         @media (prefers-color-scheme: dark) {
             body {
@@ -2366,6 +2352,7 @@
                                     
                                     const isSelected = state.selectedRow === row;
                                     const group = parseGroup(row['Group']);
+                                    const groupText = group ? `Group ${group}` : 'No Group';
                                     const originalIndex = state.allData.indexOf(row);
                                     const dogId = getDogId(row);
                                     const isInSelection = dogId && state.selectedMarkers.has(dogId);
@@ -2373,7 +2360,7 @@
                                     const marker = L.marker([offsetLat, offsetLng], {
                                         icon: createMarkerIcon(color, isSelected, 'group', group, isInSelection, row['Dog Name'], row['Callout'] && row['Callout'].trim()),
                                         riseOnHover: true,
-                                        title: row['Dog Name'] || 'Unknown'
+                                        title: `${row['Dog Name'] || 'Unknown'} - ${row['Driver'] || 'No Driver'} (${groupText})`
                                     });
 
                                     if (state.operationId === currentOpId) {
@@ -2382,22 +2369,8 @@
                                         return;
                                     }
 
-                                    const groupText = group ? `Group ${group}` : 'No Group';
-                                    
-                                    const popupContent = `
-                                        <strong>${escapeHtml(row['Driver'] || 'No Driver')}</strong><br>
-                                        ${escapeHtml(row['Dog Name'] || 'Unknown')}<br>
-                                        ${groupText}<br>
-                                        ${row['Address'] ? escapeHtml(row['Address']) + '<br>' : ''}
-                                        ${row['Capacity'] ? escapeHtml(row['Capacity']) + '<br>' : ''}
-                                        ${row['Callout'] ? `<div style="background: #fff3cd; padding: 4px; border-radius: 3px; margin-top: 4px;"><strong>CALLOUT:</strong> ${escapeHtml(row['Callout'])}</div>` : ''}
-                                        ${existingCount > 0 ? `<em>⚠️ ${existingCount + 1} dogs at this location</em>` : ''}
-                                    `;
-
-                                    marker.bindPopup(popupContent, {
-                                        maxWidth: 300,
-                                        className: 'custom-popup'
-                                    });
+                                    // Store additional data for the marker
+                                    marker._rowData = row;
                                     
                                     const markerData = {marker, row, index: originalIndex, group};
                                     
@@ -2725,29 +2698,68 @@
                     const actualIndex = state.allData.indexOf(row);
                     const driverName = row['Driver'] || '';
                     const dogName = row['Dog Name'] || 'Unknown';
-                    const groupText = row['Group'] || 'No Group';
+                    const groupText = group ? `Group ${group}` : 'No Group';
+                    const address = row['Address'] || '';
+                    const capacity = row['Capacity'] || '';
+                    const callout = row['Callout'] || '';
                     
+                    let infoHtml = '';
+                    
+                    // Build the info section
+                    infoHtml += `<div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px; text-align: center; padding: 6px 8px; background: #f8f9fa; border-radius: 4px;">
+                        ${escapeHtml(dogName)}
+                    </div>`;
+                    
+                    // Add group info
+                    infoHtml += `<div style="margin-bottom: 6px; font-size: 12px; color: #666;">
+                        <strong>Group:</strong> ${escapeHtml(groupText)}
+                    </div>`;
+                    
+                    // Add address if present
+                    if (address) {
+                        infoHtml += `<div style="margin-bottom: 6px; font-size: 12px; color: #666;">
+                            <strong>Address:</strong> ${escapeHtml(address)}
+                        </div>`;
+                    }
+                    
+                    // Add capacity if present
+                    if (capacity) {
+                        infoHtml += `<div style="margin-bottom: 6px; font-size: 12px; color: #666;">
+                            <strong>Capacity:</strong> ${escapeHtml(capacity)}
+                        </div>`;
+                    }
+                    
+                    // Add callout if present
+                    if (callout) {
+                        infoHtml += `<div style="background: #fff3cd; padding: 6px; border-radius: 4px; margin-bottom: 6px;">
+                            <strong style="color: #856404;">CALLOUT:</strong> 
+                            <span style="color: #856404;">${escapeHtml(callout)}</span>
+                        </div>`;
+                    }
+                    
+                    // Add driver edit section
                     const detailsHtml = `
-                        <div style="font-weight: bold; color: #333; margin-bottom: 6px; font-size: 13px; text-align: center; padding: 4px 6px; background: #f8f9fa; border-radius: 3px;">
-                            ${escapeHtml(dogName)} - Group ${escapeHtml(groupText)}
-                        </div>
+                        ${infoHtml}
                         
-                        <div style="margin-bottom: 4px;">
-                            <input type="text" id="editDriver" value="${escapeHtml(driverName)}" 
-                                   placeholder="Driver name"
-                                   style="width: 100%; padding: 4px 6px; border: 1px solid #ddd; border-radius: 3px; font-size: 12px;"
-                                   autocomplete="off">
-                        </div>
-                        
-                        <div style="display: flex; gap: 3px;">
-                            <button class="btn btn-primary" onclick="saveDriverName(${actualIndex})" 
-                                    id="saveBtn" style="flex: 1; padding: 4px 6px; font-size: 11px;">
-                                💾 Save
-                            </button>
-                            <button class="btn btn-secondary" onclick="cancelEdit()" 
-                                    style="flex: 1; padding: 4px 6px; font-size: 11px;">
-                                ✖️ Cancel
-                            </button>
+                        <div style="border-top: 1px solid #dee2e6; padding-top: 8px; margin-top: 8px;">
+                            <label style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">Driver:</label>
+                            <div style="margin-bottom: 6px;">
+                                <input type="text" id="editDriver" value="${escapeHtml(driverName)}" 
+                                       placeholder="Enter driver name"
+                                       style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
+                                       autocomplete="off">
+                            </div>
+                            
+                            <div style="display: flex; gap: 4px;">
+                                <button class="btn btn-primary" onclick="saveDriverName(${actualIndex})" 
+                                        id="saveBtn" style="flex: 1; padding: 6px 8px; font-size: 12px;">
+                                    💾 Save
+                                </button>
+                                <button class="btn btn-secondary" onclick="cancelEdit()" 
+                                        style="flex: 1; padding: 6px 8px; font-size: 12px;">
+                                    ✖️ Cancel
+                                </button>
+                            </div>
                         </div>
                     `;
                     
