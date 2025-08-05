@@ -2352,15 +2352,18 @@
                                     
                                     const isSelected = state.selectedRow === row;
                                     const group = parseGroup(row['Group']);
-                                    const groupText = group ? `Group ${group}` : 'No Group';
                                     const originalIndex = state.allData.indexOf(row);
                                     const dogId = getDogId(row);
                                     const isInSelection = dogId && state.selectedMarkers.has(dogId);
                                     
+                                    const tooltipText = `${row['Dog Name'] || 'Unknown'} - ${row['Driver'] || 'No Driver'} (Group ${group || '?'})`;
+                                    
+                                    const tooltipText = `${row['Dog Name'] || 'Unknown'} - ${row['Driver'] || 'No Driver'} (Group ${group || '?'})`;
+                                    
                                     const marker = L.marker([offsetLat, offsetLng], {
                                         icon: createMarkerIcon(color, isSelected, 'group', group, isInSelection, row['Dog Name'], row['Callout'] && row['Callout'].trim()),
                                         riseOnHover: true,
-                                        title: `${row['Dog Name'] || 'Unknown'} - ${row['Driver'] || 'No Driver'} (${groupText})`
+                                        title: tooltipText  // Use native title for hover
                                     });
 
                                     if (state.operationId === currentOpId) {
@@ -2698,10 +2701,11 @@
                     const actualIndex = state.allData.indexOf(row);
                     const driverName = row['Driver'] || '';
                     const dogName = row['Dog Name'] || 'Unknown';
-                    const groupText = group ? `Group ${group}` : 'No Group';
+                    const groupText = group ? `${group}` : 'No Group';
                     const address = row['Address'] || '';
                     const capacity = row['Capacity'] || '';
                     const callout = row['Callout'] || '';
+                    const dogId = row['Dog ID'] || '';
                     
                     let infoHtml = '';
                     
@@ -2710,15 +2714,22 @@
                         ${escapeHtml(dogName)}
                     </div>`;
                     
-                    // Add group info
-                    infoHtml += `<div style="margin-bottom: 6px; font-size: 12px; color: #666;">
-                        <strong>Group:</strong> ${escapeHtml(groupText)}
+                    // Add group number - bigger and bold, no label
+                    infoHtml += `<div style="text-align: center; margin-bottom: 6px; font-size: 16px; font-weight: bold; color: #333;">
+                        ${escapeHtml(groupText)}
                     </div>`;
                     
-                    // Add address if present
+                    // Add Dog ID if present
+                    if (dogId) {
+                        infoHtml += `<div style="margin-bottom: 6px; font-size: 11px; color: #999; text-align: center;">
+                            ID: ${escapeHtml(dogId)}
+                        </div>`;
+                    }
+                    
+                    // Add address if present - no label
                     if (address) {
                         infoHtml += `<div style="margin-bottom: 6px; font-size: 12px; color: #666;">
-                            <strong>Address:</strong> ${escapeHtml(address)}
+                            ${escapeHtml(address)}
                         </div>`;
                     }
                     
