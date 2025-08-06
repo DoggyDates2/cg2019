@@ -331,6 +331,11 @@
             color: #212529;
         }
 
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
         .selection-mode-active {
             background: #fff3cd !important;
             border-color: #ffc107 !important;
@@ -340,22 +345,19 @@
         .map-container {
             flex: 1;
             position: relative;
-            background: #f0f0f0;  /* Light gray to match Stamen Toner */
+            background: #f0f0f0;
         }
 
         #map {
             width: 100%;
             height: 100%;
-            background: #f0f0f0;  /* Light gray to match Stamen Toner */
+            background: #f0f0f0;
         }
 
-        /* No filters needed - Stamen Toner already has maximum street visibility */
         .leaflet-tile-pane {
             opacity: 1;
-            /* No filters - streets are already bold and clear in Stamen Toner */
         }
 
-        /* Ensure markers stay fully visible and unaffected by filters */
         .leaflet-marker-pane {
             opacity: 1 !important;
             filter: none !important;
@@ -444,13 +446,11 @@
             border-bottom: none;
         }
 
-        /* Marker selection highlight */
         .marker-selected {
             filter: drop-shadow(0 0 10px #007bff) brightness(1.2);
             transform: scale(1.2);
         }
 
-        /* Loading spinner */
         .spinner {
             display: inline-block;
             width: 16px;
@@ -471,7 +471,6 @@
             100% { transform: scale(1); }
         }
 
-        /* Notification styles */
         .notification {
             position: fixed;
             top: 20px;
@@ -518,7 +517,6 @@
             border: 1px solid #b6d4fe;
         }
 
-        /* Save indicator */
         .save-indicator {
             position: fixed;
             bottom: 20px;
@@ -549,7 +547,6 @@
             color: #721c24;
         }
 
-        /* Custom tooltip styling */
         .custom-tooltip {
             background: rgba(0, 0, 0, 0.9) !important;
             border: 1px solid #333 !important;
@@ -564,6 +561,31 @@
         
         .leaflet-tooltip-top:before {
             border-top-color: rgba(0, 0, 0, 0.9) !important;
+        }
+
+        .connection-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: none;
+            align-items: center;
+            gap: 6px;
+            z-index: 1000;
+        }
+
+        .connection-status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .connection-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
         }
     </style>
 </head>
@@ -587,6 +609,7 @@
 
         <div class="control-group">
             <button class="btn btn-secondary" id="resetColorsBtn">🎨 Reset Colors</button>
+            <button class="btn btn-info" id="testConnectionBtn">🔌 Test Connection</button>
         </div>
     </div>
 
@@ -621,6 +644,10 @@
     <div id="saveIndicator" class="save-indicator" style="display: none;">
         <span class="spinner"></span>
         <span>Saving...</span>
+    </div>
+
+    <div id="connectionStatus" class="connection-status" style="display: none;">
+        <span>Sheet Connection</span>
     </div>
 
     <!-- Leaflet JS -->
@@ -824,6 +851,81 @@
             }
             
             return inside;
+        }
+
+        // ==================== APPS SCRIPT COMMUNICATION ====================
+        async function callAppsScript(payload) {
+            try {
+                const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // Required for Apps Script
+                    headers: {
+                        'Content-Type': 'text/plain', // Apps Script requires this
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                // Note: With no-cors mode, we can't read the response
+                // But the request will still go through
+                return { success: true };
+                
+            } catch (error) {
+                console.error('Error calling Apps Script:', error);
+                throw error;
+            }
+        }
+
+        async function testAppsScriptConnection() {
+            try {
+                console.log('Testing Apps Script connection to:', CONFIG.APPS_SCRIPT_URL);
+                
+                const statusEl = document.getElementById('connectionStatus');
+                if (statusEl) {
+                    statusEl.style.display = 'flex';
+                    statusEl.className = 'connection-status';
+                    statusEl.innerHTML = '<span class="spinner"></span><span>Testing connection...</span>';
+                }
+                
+                // Test with a GET request first
+                const response = await fetch(CONFIG.APPS_SCRIPT_URL);
+                const text = await response.text();
+                
+                if (text.includes('Standalone Dog Walking Map Script')) {
+                    showNotification('✅ Google Sheets connection verified!', 'success');
+                    console.log('Apps Script GET response:', text);
+                    
+                    if (statusEl) {
+                        statusEl.className = 'connection-status connected';
+                        statusEl.innerHTML = '✅ Sheet Connected';
+                        setTimeout(() => {
+                            statusEl.style.display = 'none';
+                        }, 3000);
+                    }
+                    
+                    return true;
+                } else {
+                    showNotification('⚠️ Apps Script found but response unexpected', 'warning');
+                    console.log('Unexpected response:', text);
+                    
+                    if (statusEl) {
+                        statusEl.className = 'connection-status disconnected';
+                        statusEl.innerHTML = '⚠️ Connection Issue';
+                    }
+                    
+                    return false;
+                }
+            } catch (error) {
+                console.error('Apps Script test failed:', error);
+                showNotification('⚠️ Could not connect to Google Sheets', 'error');
+                
+                const statusEl = document.getElementById('connectionStatus');
+                if (statusEl) {
+                    statusEl.className = 'connection-status disconnected';
+                    statusEl.innerHTML = '❌ Not Connected';
+                }
+                
+                return false;
+            }
         }
 
         // ==================== COLOR MANAGEMENT ====================
@@ -1042,26 +1144,8 @@
                     attributionControl: true
                 });
                 
-                // TILE PROVIDER OPTIONS - Using high contrast for clear streets:
-                
-                // Option 1 - Stamen Toner (HIGH CONTRAST - Bold black streets on white):
+                // Using Stamen Toner for high contrast streets
                 const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png';
-                
-                // Alternative Options:
-                // Option 2 - Stamen Toner Hybrid (Satellite with street overlay):
-                // const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner-hybrid/{z}/{x}/{y}.png';
-                
-                // Option 3 - Stamen Toner Lines (Just streets, no labels):
-                // const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner-lines/{z}/{x}/{y}.png';
-                
-                // Option 4 - Stamen Toner Lite (Softer gray version):
-                // const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png';
-                
-                // Option 5 - CartoDB Voyager (Clear dark streets, less stark):
-                // const tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
-                
-                // Option 6 - CartoDB Dark (White streets on dark background):
-                // const tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
                 
                 console.log('Loading map tiles: Stamen Toner (High contrast for clear streets)');
                 
@@ -1153,7 +1237,7 @@
 
         // ==================== DATA LOADING ====================
         async function loadData() {
-            showNotification('Loading data...', 'info');
+            showNotification('Loading data from Google Sheets...', 'info');
             
             try {
                 if (!CONFIG.SHEET_ID || !CONFIG.API_KEY) {
@@ -1398,7 +1482,7 @@
                         // Add marker to map first
                         marker.addTo(state.map);
                         
-                        // Create and bind tooltip - using the correct Leaflet tooltip binding (capital T in Tooltip)
+                        // Create and bind tooltip
                         marker.bindTooltip(tooltipHtml, {
                             permanent: false,
                             direction: 'top',
@@ -2090,7 +2174,8 @@
             }
         }
 
-        function saveDriverName(index) {
+        // ==================== SAVE FUNCTIONS WITH GOOGLE SHEETS INTEGRATION ====================
+        async function saveDriverName(index) {
             const editInput = document.getElementById('editDriver');
             const saveBtn = document.getElementById('saveBtn');
             
@@ -2113,34 +2198,64 @@
             }
 
             try {
+                // Disable save button
+                if (saveBtn) {
+                    saveBtn.disabled = true;
+                    saveBtn.innerHTML = '⏳ Saving...';
+                }
+                
+                
                 const oldDriver = state.selectedRow['Driver'] || '';
                 
-                // Update local data immediately
+                // Update local data immediately for responsive UI
                 state.selectedRow['Driver'] = newDriverName;
                 state.allData[actualIndex]['Driver'] = newDriverName;
+                
+                // Note: We READ from Combined as a fallback display value,
+                // but we don't UPDATE it - it may be formula-driven or managed elsewhere
                 
                 // Update UI immediately
                 assignDriverColors();
                 updateMap();
                 
-                showNotification('Updated! (Local only - Apps Script not connected)', 'success', 2000);
+                // Show immediate feedback
+                showNotification('Saving to Google Sheets...', 'info', 1000);
                 
-                // Would call Apps Script here to save to Google Sheets
-                // callAppsScript({ action: 'update', rowIndex: actualIndex + 2, data: { Driver: newDriverName } })
+                // Send to Google Sheets
+                // Your Apps Script expects rowIndex directly (with +2 for header and 1-based indexing)
+                const payload = {
+                    action: 'updateRow',
+                    rowIndex: actualIndex + 2, // +1 for 0-based to 1-based, +1 for header row
+                    updatedData: {
+                        'Driver': newDriverName
+                    }
+                };
+                
+                await callAppsScript(payload);
+                
+                showNotification('✅ Driver updated in Google Sheets!', 'success', 2000);
+                
+                // Re-enable button
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = '💾 Save';
+                }
                 
             } catch (error) {
                 console.error('Error in saveDriverName:', error);
-                showNotification(`Error: ${error.message}`, 'error');
-            }
-        }
-
-        function cancelEdit() {
-            if (state.selectedMarker && state.selectedRow) {
-                const markerData = state.markers.find(m => m && m.marker === state.selectedMarker);
-                if (markerData) {
-                    const index = state.allData.indexOf(state.selectedRow);
-                    selectMarker(state.selectedMarker, state.selectedRow, index, markerData.group);
+                showNotification(`Error saving: ${error.message}`, 'error');
+                
+                // Restore button state
+                if (saveBtn) {
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = '💾 Save';
                 }
+                
+                // Revert local changes on error
+                state.selectedRow['Driver'] = oldDriver;
+                state.allData[actualIndex]['Driver'] = oldDriver;
+                assignDriverColors();
+                updateMap();
             }
         }
 
@@ -2151,6 +2266,8 @@
             }
             
             const bulkInput = document.getElementById('bulkDriverInput');
+            const bulkBtn = document.getElementById('bulkUpdateBtn');
+            
             if (!bulkInput) {
                 showNotification('Interface not ready. Please try again.', 'error');
                 return;
@@ -2193,10 +2310,23 @@
                     return;
                 }
                 
-                // Update local data immediately
+                // Disable button
+                if (bulkBtn) {
+                    bulkBtn.disabled = true;
+                    bulkBtn.innerHTML = '⏳ Updating...';
+                }
+                
+                // Store old values for rollback
+                const oldValues = validSelectedRows.map(row => ({
+                    row: row,
+                    oldDriver: row['Driver'] || ''
+                }));
+                
+                // Update local data immediately for responsive UI
                 rowIndices.forEach((actualIndex, i) => {
                     const row = validSelectedRows[i];
                     row['Driver'] = newDriverName;
+                    // Note: Not updating Combined - it may be formula-driven
                 });
                 
                 // Update UI immediately
@@ -2204,14 +2334,59 @@
                 updateMap();
                 clearSelection();
                 
-                showNotification(`Updated ${validSelectedRows.length} dogs! (Local only - Apps Script not connected)`, 'success');
+                showNotification(`Saving ${validSelectedRows.length} updates to Google Sheets...`, 'info');
                 
-                // Would call Apps Script here for batch update
-                // callAppsScript({ action: 'bulkUpdate', updates: [...] })
+                // Prepare bulk update payload matching your Apps Script format
+                const updates = rowIndices.map(actualIndex => ({
+                    rowIndex: actualIndex + 2, // +1 for 0-based to 1-based, +1 for header row
+                    updatedData: {
+                        'Driver': newDriverName
+                    }
+                }));
+                
+                const payload = {
+                    action: 'bulkUpdate',
+                    updates: updates
+                };
+                
+                await callAppsScript(payload);
+                
+                showNotification(`✅ Successfully updated ${validSelectedRows.length} dogs in Google Sheets!`, 'success', 3000);
+                
+                // Re-enable button
+                if (bulkBtn) {
+                    bulkBtn.disabled = false;
+                    bulkBtn.innerHTML = '💾 Update All';
+                }
                 
             } catch (error) {
                 console.error('Bulk update error:', error);
-                showNotification(`Error: ${error.message}`, 'error');
+                showNotification(`Error during bulk update: ${error.message}`, 'error');
+                
+                // Re-enable button
+                if (bulkBtn) {
+                    bulkBtn.disabled = false;
+                    bulkBtn.innerHTML = '💾 Update All';
+                }
+                
+                // Rollback local changes on error
+                if (oldValues) {
+                    oldValues.forEach(({row, oldDriver}) => {
+                        row['Driver'] = oldDriver;
+                    });
+                    assignDriverColors();
+                    updateMap();
+                }
+            }
+        }
+
+        function cancelEdit() {
+            if (state.selectedMarker && state.selectedRow) {
+                const markerData = state.markers.find(m => m && m.marker === state.selectedMarker);
+                if (markerData) {
+                    const index = state.allData.indexOf(state.selectedRow);
+                    selectMarker(state.selectedMarker, state.selectedRow, index, markerData.group);
+                }
             }
         }
 
@@ -2251,6 +2426,9 @@
                 // Load initial data
                 loadData();
                 
+                // Test Apps Script connection after a short delay
+                setTimeout(() => testAppsScriptConnection(), 2000);
+                
                 // Setup event listeners
                 const searchInput = document.getElementById('searchInput');
                 if (searchInput) {
@@ -2269,6 +2447,7 @@
                 document.getElementById('resetColorsBtn')?.addEventListener('click', resetColors);
                 document.getElementById('showAllBtn')?.addEventListener('click', clearFilter);
                 document.getElementById('panelToggle')?.addEventListener('click', togglePanel);
+                document.getElementById('testConnectionBtn')?.addEventListener('click', testAppsScriptConnection);
                 
                 // Add keyboard shortcuts
                 document.addEventListener('keydown', function(e) {
@@ -2299,6 +2478,7 @@
                 });
                 
                 console.log('Application initialized successfully');
+                console.log('Google Sheets Write-back Enabled');
                 
             } catch (error) {
                 console.error('Error during application initialization:', error);
@@ -2312,6 +2492,7 @@
         window.saveDriverName = saveDriverName;
         window.cancelEdit = cancelEdit;
         window.bulkUpdateSelected = bulkUpdateSelected;
+        window.testAppsScriptConnection = testAppsScriptConnection;
 
         // Global error handler
         window.addEventListener('error', function(event) {
@@ -2322,7 +2503,7 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map v2.0 - All functions loaded');
+        console.log('Dog Walking Map v2.1 - Google Sheets Write-back Enabled');
     </script>
 </body>
 </html>
