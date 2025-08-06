@@ -2074,72 +2074,98 @@
 
         // ==================== LEGEND ====================
         function updateLegend() {
-            const legendContent = document.getElementById('legendContent');
-            if (!legendContent) return;
+    const legendContent = document.getElementById('legendContent');
+    if (!legendContent) return;
+    
+    try {
+        const sortedEntries = Object.entries(state.colorMap).sort(([a], [b]) => a.localeCompare(b));
+        const legendItems = [];
+        
+        sortedEntries.forEach(([key, color]) => {
+            if (!key || !color) return;
             
-            try {
-                const sortedEntries = Object.entries(state.colorMap).sort(([a], [b]) => a.localeCompare(b));
-                const legendItems = [];
+            const isActive = state.currentFilter === key;
+            let displayText = escapeHtml(key);
+            
+            // Add group counts for drivers
+            if (state.allData && state.allData.length > 0) {
+                // Count dogs by group for this driver
+                const groupCounts = { 1: 0, 2: 0, 3: 0 };
                 
-                sortedEntries.forEach(([key, color]) => {
-                    if (!key || !color) return;
+                state.allData.forEach(row => {
+                    if (!row) return;
+                    const rowDriver = row['Driver'] || row['Combined'] || '';
+                    if (rowDriver !== key) return;
                     
-                    const isActive = state.currentFilter === key;
-                    let displayText = escapeHtml(key);
+                    // Get the number of dogs (default to 1 if not specified)
+                    const dogCount = parseInt(row['Number of Dogs'] || '1') || 1;
                     
-                    // Add counts for drivers
-                    if (state.allData && state.allData.length > 0) {
-                        const count = state.allData.filter(row => {
-                            if (!row) return false;
-                            const rowDriver = row['Driver'] || row['Combined'] || '';    
-                            return rowDriver === key;
-                        }).length;
-                        
-                        if (count > 0) {
-                            displayText += ` (${count})`;
+                    // Parse the group assignment
+                    const group = parseGroup(row['Group']);
+                    
+                    if (group !== null) {
+                        if (typeof group === 'string' && group.length > 1) {
+                            // Multi-group: split and add to each
+                            group.split('').forEach(g => {
+                                const groupNum = parseInt(g);
+                                if (groupNum >= 1 && groupNum <= 3) {
+                                    groupCounts[groupNum] += dogCount;
+                                }
+                            });
+                        } else if (typeof group === 'number' && group >= 1 && group <= 3) {
+                            // Single group
+                            groupCounts[group] += dogCount;
                         }
                     }
-                    
-                    const dataKey = escapeHtml(key);
-                    const safeKey = key.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\\/g, '\\\\');
-                    
-                    legendItems.push(`
-                        <div class="legend-item ${isActive ? 'active' : ''}" 
-                             onclick="filterByCategory('${safeKey}')"
-                             role="button"
-                             tabindex="0"
-                             aria-label="Filter by ${dataKey}"
-                             aria-pressed="${isActive}">
-                            <div class="legend-color" style="background-color: ${color}"></div>
-                            <span class="legend-text">${displayText}</span>
-                            <input type="color" class="color-picker" value="${color}" 
-                                   data-category="${dataKey}"
-                                   aria-label="Change color for ${dataKey}"
-                                   onclick="event.stopPropagation()" />
-                        </div>
-                    `);
                 });
                 
-                legendContent.innerHTML = legendItems.join('') || '<div class="no-selection">No drivers found</div>';
-                
-                // Add color picker handlers
-                const pickers = legendContent.querySelectorAll('.color-picker');
-                pickers.forEach(picker => {
-                    picker.addEventListener('change', function(e) {
-                        e.stopPropagation();
-                        const categoryName = this.getAttribute('data-category');
-                        if (categoryName) {
-                            changeCustomColor(categoryName, this.value);
-                        }
-                    });
-                    picker.addEventListener('click', e => e.stopPropagation());
-                });
-                
-            } catch (error) {
-                console.error('Error updating legend:', error);
-                legendContent.innerHTML = '<div class="error-message">Error loading legend</div>';
+                // Only show counts if there are any dogs
+                const total = groupCounts[1] + groupCounts[2] + groupCounts[3];
+                if (total > 0) {
+                    displayText += ` (${groupCounts[1]}, ${groupCounts[2]}, ${groupCounts[3]})`;
+                }
             }
-        }
+            
+            const dataKey = escapeHtml(key);
+            const safeKey = key.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\\/g, '\\\\');
+            
+            legendItems.push(`
+                <div class="legend-item ${isActive ? 'active' : ''}" 
+                     onclick="filterByCategory('${safeKey}')"
+                     role="button"
+                     tabindex="0"
+                     aria-label="Filter by ${dataKey}"
+                     aria-pressed="${isActive}">
+                    <div class="legend-color" style="background-color: ${color}"></div>
+                    <span class="legend-text">${displayText}</span>
+                    <input type="color" class="color-picker" value="${color}" 
+                           data-category="${dataKey}"
+                           aria-label="Change color for ${dataKey}"
+                           onclick="event.stopPropagation()" />
+                </div>
+            `);
+        });
+        
+        legendContent.innerHTML = legendItems.join('') || '<div class="no-selection">No drivers found</div>';
+        
+        // Add color picker handlers
+        const pickers = legendContent.querySelectorAll('.color-picker');
+        pickers.forEach(picker => {
+            picker.addEventListener('change', function(e) {
+                e.stopPropagation();
+                const categoryName = this.getAttribute('data-category');
+                if (categoryName) {
+                    changeCustomColor(categoryName, this.value);
+                }
+            });
+            picker.addEventListener('click', e => e.stopPropagation());
+        });
+        
+    } catch (error) {
+        console.error('Error updating legend:', error);
+        legendContent.innerHTML = '<div class="error-message">Error loading legend</div>';
+    }
+
 
         // ==================== EVENT HANDLERS ====================
         function toggleGroupFilter(group) {
