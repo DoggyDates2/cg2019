@@ -1052,33 +1052,32 @@
                 
                 // TILE PROVIDER OPTIONS - Change the URL below to switch styles:
                 
-                // Option 1 - Google Maps (REQUIRES API KEY - may have usage costs):
-                // Your API key is already in CONFIG.API_KEY
-                // Google Maps layer types:
-                //   lyrs=m    : Standard Road Map
-                //   lyrs=s    : Satellite Only
-                //   lyrs=y    : Hybrid (satellite + roads)
-                //   lyrs=t    : Terrain
-                //   lyrs=p    : Terrain + roads
-                //   lyrs=h    : Roads only (no background)
-                const tileUrl = `https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}`;
-                // Note: Using without API key may work but could be rate limited
-                // For production use, add: &key=${CONFIG.API_KEY} to the URL
+                // Option 1 - Stamen Toner Light (FREE - Clean black & white minimalist style):
+                const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png';
                 
-                // Option 2 - CartoDB Light (FREE - Most Google-like clean style):
+                // Option 2 - Google Maps (REQUIRES API KEY - may have usage costs):
+                // const tileUrl = `https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}`;
+                
+                // Option 3 - CartoDB Light (FREE - Most Google-like clean style):
                 // const tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
                 
-                // Option 3 - CartoDB Voyager (FREE - darker streets, clean):
+                // Option 4 - CartoDB Voyager (FREE - darker streets, clean):
                 // const tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
                 
-                // Option 4 - Standard OpenStreetMap (FREE - most detail):
+                // Option 5 - Standard OpenStreetMap (FREE - most detail):
                 // const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
                 
-                console.log('Loading map tiles: Google Maps Standard');
+                // Option 6 - Stamen Toner (Full black & white - high contrast):
+                // const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png';
+                
+                // Option 7 - Stamen Watercolor (Artistic watercolor style):
+                // const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/watercolor/{z}/{x}/{y}.png';
+                
+                console.log('Loading map tiles: Stamen Toner Light');
                 
                 const tileLayer = L.tileLayer(tileUrl, {
-                    attribution: 'Map data ©2024 Google',
-                    maxZoom: 20,
+                    attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://www.openstreetmap.org/copyright">ODbL</a>.',
+                    maxZoom: 18,
                     minZoom: 2,
                     errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
                 });
