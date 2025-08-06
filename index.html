@@ -340,20 +340,19 @@
         .map-container {
             flex: 1;
             position: relative;
-            background: #ffffff;
+            background: #f0f0f0;  /* Light gray to match Stamen Toner */
         }
 
         #map {
             width: 100%;
             height: 100%;
-            background: #ffffff;
+            background: #f0f0f0;  /* Light gray to match Stamen Toner */
         }
 
-        /* Desaturate map tiles for a cleaner, street-focused look */
+        /* No filters needed - Stamen Toner already has maximum street visibility */
         .leaflet-tile-pane {
             opacity: 1;
-            /* Reduce colors while keeping streets visible */
-            filter: saturate(0.3) contrast(1.1) brightness(1.05);
+            /* No filters - streets are already bold and clear in Stamen Toner */
         }
 
         /* Ensure markers stay fully visible and unaffected by filters */
@@ -1043,25 +1042,31 @@
                     attributionControl: true
                 });
                 
-                // TILE PROVIDER OPTIONS - Using minimal, street-focused style:
+                // TILE PROVIDER OPTIONS - Using high contrast for clear streets:
                 
-                // Option 1 - CartoDB Positron (MINIMAL COLORS - Clean streets on light background):
-                const tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
+                // Option 1 - Stamen Toner (HIGH CONTRAST - Bold black streets on white):
+                const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png';
                 
                 // Alternative Options:
-                // Option 2 - CartoDB Positron No Labels (even cleaner):
-                // const tileUrl = 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png';
+                // Option 2 - Stamen Toner Hybrid (Satellite with street overlay):
+                // const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner-hybrid/{z}/{x}/{y}.png';
                 
-                // Option 3 - OpenStreetMap (Standard - more colorful):
-                // const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+                // Option 3 - Stamen Toner Lines (Just streets, no labels):
+                // const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner-lines/{z}/{x}/{y}.png';
                 
-                // Option 4 - CartoDB Dark Matter (inverted - white streets on dark):
+                // Option 4 - Stamen Toner Lite (Softer gray version):
+                // const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png';
+                
+                // Option 5 - CartoDB Voyager (Clear dark streets, less stark):
+                // const tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+                
+                // Option 6 - CartoDB Dark (White streets on dark background):
                 // const tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
                 
-                console.log('Loading map tiles: CartoDB Positron (Minimal style)');
+                console.log('Loading map tiles: Stamen Toner (High contrast for clear streets)');
                 
                 const tileLayer = L.tileLayer(tileUrl, {
-                    attribution: '© OpenStreetMap contributors © CARTO',
+                    attribution: 'Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL.',
                     maxZoom: 19,
                     minZoom: 2,
                     errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
@@ -1075,11 +1080,11 @@
                     const tiles = document.querySelectorAll('.leaflet-tile');
                     if (tiles.length === 0 && !fallbackLayer) {
                         console.warn('No tiles loaded - switching to fallback');
-                        showNotification('Primary map not loading, trying fallback...', 'info');
+                        showNotification('Stamen server not responding, trying fallback...', 'info');
                         
-                        // Try OpenStreetMap as fallback
-                        fallbackLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                            attribution: '© OpenStreetMap contributors',
+                        // Try CartoDB Positron as fallback
+                        fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+                            attribution: '© OpenStreetMap contributors © CARTO',
                             maxZoom: 19
                         });
                         state.map.removeLayer(tileLayer);
@@ -1095,11 +1100,11 @@
                         tileLoadTimeout = null;
                     }
                     
-                    // Fallback to OpenStreetMap if CartoDB fails
+                    // Fallback to CartoDB if Stamen fails
                     if (!fallbackLayer) {
-                        console.log('Switching to fallback map provider (OpenStreetMap)...');
-                        fallbackLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                            attribution: '© OpenStreetMap contributors',
+                        console.log('Switching to fallback map provider (CartoDB Positron)...');
+                        fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+                            attribution: '© OpenStreetMap contributors © CARTO',
                             maxZoom: 19
                         });
                         state.map.removeLayer(tileLayer);
