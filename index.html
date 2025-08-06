@@ -340,12 +340,23 @@
         .map-container {
             flex: 1;
             position: relative;
-            background: #e5e5e5;
+            background: #ffffff;
         }
 
         #map {
             width: 100%;
             height: 100%;
+            background: #ffffff;
+        }
+
+        /* Full opacity for bold black streets */
+        .leaflet-tile-pane {
+            opacity: 1;
+        }
+
+        /* Ensure markers stay fully visible */
+        .leaflet-marker-pane {
+            opacity: 1 !important;
         }
 
         .bulk-edit-panel {
@@ -1012,10 +1023,17 @@
                     attributionControl: true
                 });
                 
-                // Try multiple tile providers
-                const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors',
+                // Use Stamen Toner for bold black streets on white background
+                // Alternative styles you can try:
+                // 1. Stamen Toner (bold): 'https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png'
+                // 2. Stamen Toner Lite (softer): 'https://stamen-tiles-{s}.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png'
+                // 3. Stamen Toner Background (no labels): 'https://stamen-tiles-{s}.a.ssl.fastly.net/toner-background/{z}/{x}/{y}.png'
+                // 4. CartoDB Dark Matter: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png'
+                
+                const tileLayer = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png', {
+                    attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>',
                     maxZoom: 19,
+                    subdomains: 'abcd',
                     errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
                 });
                 
