@@ -1982,8 +1982,8 @@
                 const actualIndex = row['_rowIndex'] ?? state.allData.indexOf(row);
                 const driverName = row['Driver'] || '';
                 const dogName = row['Dog Name'] || 'Unknown';
-                const group = parseGroup(row['Group']);
-                const groupText = group ? `${group}` : 'No Group';
+                const group = parseGroup(row['Group']);  // Keep for internal use
+                const groupText = row['Group'] || 'No Group';  // Use original for display
                 const address = row['Address'] || '';
                 const capacity = row['Capacity'] || '';
                 const callout = row['Callout'] || '';
