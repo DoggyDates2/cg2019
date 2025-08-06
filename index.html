@@ -814,17 +814,37 @@
                 id = row['Dog ID'].trim();
             } else if (row['Dog Name'] && row['Dog Name'].trim()) {
                 id = row['Dog Name'].trim();
-                const index = state.allData.indexOf(row);
+                // Use the stored _rowIndex instead of indexOf
+                const index = row['_rowIndex'] ?? state.allData.indexOf(row);
                 if (index >= 0) {
                     id = `${id}_${index}`;
                 }
             } else {
-                const index = state.allData.indexOf(row);
+                const index = row['_rowIndex'] ?? state.allData.indexOf(row);
                 id = `dog_${index >= 0 ? index : Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
             }
             
             row['_uniqueId'] = id;
             return id;
+        }
+
+        // Get row's sheet index (accounting for header row)
+        function getSheetRowIndex(row) {
+            // Use the stored _rowIndex if available, otherwise try to find it
+            if (row && typeof row['_rowIndex'] === 'number') {
+                // _rowIndex is 0-based from the data rows
+                // Add 2: +1 for header row, +1 for 1-based indexing
+                return row['_rowIndex'] + 2;
+            }
+            
+            // Fallback: try to find in allData
+            const index = state.allData.indexOf(row);
+            if (index !== -1) {
+                return index + 2;
+            }
+            
+            console.error('Could not determine sheet row index for row:', row);
+            return -1;
         }
 
         // Point in polygon algorithm
@@ -1306,7 +1326,7 @@
                         
                         obj['_lat'] = lat;
                         obj['_lng'] = lng;
-                        obj['_rowIndex'] = index;
+                        obj['_rowIndex'] = index;  // Store the original row index (0-based, excluding header)
                         
                         processedData.push(obj);
                         validRows++;
@@ -1494,7 +1514,7 @@
                         // Store additional data for the marker
                         marker._rowData = row;
                         
-                        const markerData = {marker, row, index: state.allData.indexOf(row), group};
+                        const markerData = {marker, row, index: row['_rowIndex'] ?? state.allData.indexOf(row), group};
                         
                         if (dogId) {
                             state.markerLookup.set(dogId, markerData);
@@ -1519,7 +1539,7 @@
                                     updateSelectedMarkersDisplay();
                                     updateBulkEditPanel();
                                 } else {
-                                    const validIndex = state.allData.indexOf(row);
+                                    const validIndex = row['_rowIndex'] ?? state.allData.indexOf(row);
                                     selectMarker(marker, row, validIndex, group);
                                 }
                             } catch (clickError) {
@@ -1933,7 +1953,8 @@
             if (!detailsContent) return;
             
             try {
-                const actualIndex = state.allData.indexOf(row);
+                // Use the stored _rowIndex or calculate it
+                const actualIndex = row['_rowIndex'] ?? state.allData.indexOf(row);
                 const driverName = row['Driver'] || '';
                 const dogName = row['Dog Name'] || 'Unknown';
                 const group = parseGroup(row['Group']);
@@ -1984,7 +2005,7 @@
                     </div>`;
                 }
                 
-                // Add driver edit section
+                // Add driver edit section - using actualIndex properly
                 const detailsHtml = `
                     ${infoHtml}
                     
@@ -1998,7 +2019,7 @@
                         </div>
                         
                         <div style="display: flex; gap: 4px;">
-                            <button class="btn btn-primary" onclick="saveDriverName(${actualIndex})" 
+                            <button class="btn btn-primary" onclick="saveDriverName()" 
                                     id="saveBtn" style="flex: 1; padding: 6px 8px; font-size: 12px;">
                                 💾 Save
                             </button>
@@ -2021,7 +2042,7 @@
                         input.addEventListener('keydown', function(e) {
                             if (e.key === 'Enter') {
                                 e.preventDefault();
-                                saveDriverName(actualIndex);
+                                saveDriverName();
                             } else if (e.key === 'Escape') {
                                 e.preventDefault();
                                 cancelEdit();
@@ -2175,7 +2196,7 @@
         }
 
         // ==================== SAVE FUNCTIONS WITH GOOGLE SHEETS INTEGRATION ====================
-        async function saveDriverName(index) {
+        async function saveDriverName() {
             const editInput = document.getElementById('editDriver');
             const saveBtn = document.getElementById('saveBtn');
             
@@ -2186,14 +2207,8 @@
             
             const newDriverName = editInput.value.trim();
             
-            if (!state.selectedRow || typeof index !== 'number' || !state.allData || !state.allData[index]) {
-                showNotification('Error: Invalid selection', 'error');
-                return;
-            }
-
-            const actualIndex = state.allData.indexOf(state.selectedRow);
-            if (actualIndex === -1) {
-                showNotification('Error: Could not find row in data', 'error');
+            if (!state.selectedRow) {
+                showNotification('Error: No row selected', 'error');
                 return;
             }
 
@@ -2204,15 +2219,19 @@
                     saveBtn.innerHTML = '⏳ Saving...';
                 }
                 
-                
                 const oldDriver = state.selectedRow['Driver'] || '';
+                
+                // Get the correct sheet row index
+                const sheetRowIndex = getSheetRowIndex(state.selectedRow);
+                
+                if (sheetRowIndex === -1) {
+                    throw new Error('Could not determine row index');
+                }
+                
+                console.log('Saving to sheet row:', sheetRowIndex, 'for dog:', state.selectedRow['Dog Name']);
                 
                 // Update local data immediately for responsive UI
                 state.selectedRow['Driver'] = newDriverName;
-                state.allData[actualIndex]['Driver'] = newDriverName;
-                
-                // Note: We READ from Combined as a fallback display value,
-                // but we don't UPDATE it - it may be formula-driven or managed elsewhere
                 
                 // Update UI immediately
                 assignDriverColors();
@@ -2221,11 +2240,10 @@
                 // Show immediate feedback
                 showNotification('Saving to Google Sheets...', 'info', 1000);
                 
-                // Send to Google Sheets
-                // Your Apps Script expects rowIndex directly (with +2 for header and 1-based indexing)
+                // Send to Google Sheets with the already calculated row index
                 const payload = {
                     action: 'updateRow',
-                    rowIndex: actualIndex + 2, // +1 for 0-based to 1-based, +1 for header row
+                    rowIndex: sheetRowIndex,  // Already includes +2 adjustment
                     updatedData: {
                         'Driver': newDriverName
                     }
@@ -2252,10 +2270,11 @@
                 }
                 
                 // Revert local changes on error
-                state.selectedRow['Driver'] = oldDriver;
-                state.allData[actualIndex]['Driver'] = oldDriver;
-                assignDriverColors();
-                updateMap();
+                if (state.selectedRow && typeof oldDriver !== 'undefined') {
+                    state.selectedRow['Driver'] = oldDriver;
+                    assignDriverColors();
+                    updateMap();
+                }
             }
         }
 
@@ -2287,16 +2306,15 @@
             
             try {
                 const validSelectedRows = [];
-                const rowIndices = [];
+                const sheetRowIndices = [];
                 
                 for (const dogId of state.selectedMarkers) {
                     const markerData = state.markerLookup.get(dogId);
-                    const row = markerData?.row || state.allData.find(r => getDogId(r) === dogId);
-                    if (row) {
-                        const index = state.allData.indexOf(row);
-                        if (index !== -1) {
-                            validSelectedRows.push(row);
-                            rowIndices.push(index);
+                    if (markerData && markerData.row) {
+                        const sheetRowIndex = getSheetRowIndex(markerData.row);
+                        if (sheetRowIndex !== -1) {
+                            validSelectedRows.push(markerData.row);
+                            sheetRowIndices.push(sheetRowIndex);
                         }
                     }
                 }
@@ -2323,10 +2341,8 @@
                 }));
                 
                 // Update local data immediately for responsive UI
-                rowIndices.forEach((actualIndex, i) => {
-                    const row = validSelectedRows[i];
+                validSelectedRows.forEach(row => {
                     row['Driver'] = newDriverName;
-                    // Note: Not updating Combined - it may be formula-driven
                 });
                 
                 // Update UI immediately
@@ -2336,13 +2352,15 @@
                 
                 showNotification(`Saving ${validSelectedRows.length} updates to Google Sheets...`, 'info');
                 
-                // Prepare bulk update payload matching your Apps Script format
-                const updates = rowIndices.map(actualIndex => ({
-                    rowIndex: actualIndex + 2, // +1 for 0-based to 1-based, +1 for header row
+                // Prepare bulk update payload
+                const updates = sheetRowIndices.map(sheetRowIndex => ({
+                    rowIndex: sheetRowIndex,  // Already includes +2 adjustment
                     updatedData: {
                         'Driver': newDriverName
                     }
                 }));
+                
+                console.log('Bulk updating rows:', sheetRowIndices);
                 
                 const payload = {
                     action: 'bulkUpdate',
@@ -2384,7 +2402,7 @@
             if (state.selectedMarker && state.selectedRow) {
                 const markerData = state.markers.find(m => m && m.marker === state.selectedMarker);
                 if (markerData) {
-                    const index = state.allData.indexOf(state.selectedRow);
+                    const index = state.selectedRow['_rowIndex'] ?? state.allData.indexOf(state.selectedRow);
                     selectMarker(state.selectedMarker, state.selectedRow, index, markerData.group);
                 }
             }
@@ -2478,7 +2496,7 @@
                 });
                 
                 console.log('Application initialized successfully');
-                console.log('Google Sheets Write-back Enabled');
+                console.log('Google Sheets Write-back Enabled - Fixed Row Indexing');
                 
             } catch (error) {
                 console.error('Error during application initialization:', error);
@@ -2503,7 +2521,7 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map v2.1 - Google Sheets Write-back Enabled');
+        console.log('Dog Walking Map v2.2 - Fixed Row Indexing');
     </script>
 </body>
 </html>
