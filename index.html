@@ -549,6 +549,23 @@
             background: #f8d7da;
             color: #721c24;
         }
+
+        /* Custom tooltip styling */
+        .custom-tooltip {
+            background: rgba(0, 0, 0, 0.9) !important;
+            border: 1px solid #333 !important;
+            color: white !important;
+            font-weight: 600 !important;
+            font-size: 12px !important;
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important;
+            white-space: nowrap !important;
+        }
+        
+        .leaflet-tooltip-top:before {
+            border-top-color: rgba(0, 0, 0, 0.9) !important;
+        }
     </style>
 </head>
 <body>
@@ -1344,15 +1361,28 @@
                         const isInSelection = dogId && state.selectedMarkers.has(dogId);
                         const hasCallout = row['Callout'] && row['Callout'].trim();
                         
-                        const tooltipText = `${row['Dog Name'] || 'Unknown'} - ${driver || 'No Driver'} (Group ${group || '?'})`;
+                        // Format tooltip as "Driver:Group" then dog name on new line
+                        const driverDisplay = driver || 'No Driver';
+                        const groupDisplay = group || '?';
+                        const dogNameDisplay = row['Dog Name'] || 'Unknown';
+                        const tooltipHtml = `<div style="text-align: center;"><strong>${driverDisplay}:${groupDisplay}</strong><br/>${dogNameDisplay}</div>`;
                         
                         const marker = L.marker([offsetLat, offsetLng], {
                             icon: createMarkerIcon(color, false, 'group', group, isInSelection, row['Dog Name'], hasCallout),
-                            riseOnHover: true,
-                            title: tooltipText
+                            riseOnHover: true
                         });
 
+                        // Add marker to map first
                         marker.addTo(state.map);
+                        
+                        // Create and bind tooltip - using the correct Leaflet tooltip binding (capital T in Tooltip)
+                        marker.bindTooltip(tooltipHtml, {
+                            permanent: false,
+                            direction: 'top',
+                            offset: [0, -10],
+                            className: 'custom-tooltip',
+                            opacity: 0.95
+                        });
 
                         // Store additional data for the marker
                         marker._rowData = row;
