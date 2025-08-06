@@ -340,20 +340,20 @@
         .map-container {
             flex: 1;
             position: relative;
-            background: #ffffff;  /* Changed from grey to white */
+            background: #ffffff;
         }
 
         #map {
             width: 100%;
             height: 100%;
-            background: #ffffff;  /* Changed from grey to white */
+            background: #ffffff;
         }
 
-        /* Full opacity for map tiles - NO FILTERS to diagnose the issue */
+        /* Desaturate map tiles for a cleaner, street-focused look */
         .leaflet-tile-pane {
             opacity: 1;
-            /* Temporarily removing ALL filters to see raw tiles */
-            /* filter: contrast(1.3) brightness(0.95); */
+            /* Reduce colors while keeping streets visible */
+            filter: saturate(0.3) contrast(1.1) brightness(1.05);
         }
 
         /* Ensure markers stay fully visible and unaffected by filters */
@@ -1043,31 +1043,25 @@
                     attributionControl: true
                 });
                 
-                // Use standard OpenStreetMap - it has darker, more visible streets
-                // Alternative styles you can try by changing the URL:
-                // 1. Standard OSM (good contrast): 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
-                // 2. CartoDB Voyager (darker streets): 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
-                // 3. CartoDB Dark (inverted): 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-                // 4. OSM DE (German style, bolder): 'https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png'
+                // TILE PROVIDER OPTIONS - Using minimal, street-focused style:
                 
-                // TILE PROVIDER OPTIONS - Using most reliable option first:
+                // Option 1 - CartoDB Positron (MINIMAL COLORS - Clean streets on light background):
+                const tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
                 
-                // Option 1 - OpenStreetMap (MOST RELIABLE - Standard map with good street visibility):
-                const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+                // Alternative Options:
+                // Option 2 - CartoDB Positron No Labels (even cleaner):
+                // const tileUrl = 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png';
                 
-                // Option 2 - CartoDB Voyager (Clean with darker streets):
-                // const tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+                // Option 3 - OpenStreetMap (Standard - more colorful):
+                // const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
                 
-                // Option 3 - CartoDB Positron (Light background, grey streets):
-                // const tileUrl = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png';
+                // Option 4 - CartoDB Dark Matter (inverted - white streets on dark):
+                // const tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
                 
-                // Option 4 - Stamen Toner (Black & white - IF IT LOADS):
-                // const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png';
-                
-                console.log('Loading map tiles: OpenStreetMap Standard');
+                console.log('Loading map tiles: CartoDB Positron (Minimal style)');
                 
                 const tileLayer = L.tileLayer(tileUrl, {
-                    attribution: '© OpenStreetMap contributors',
+                    attribution: '© OpenStreetMap contributors © CARTO',
                     maxZoom: 19,
                     minZoom: 2,
                     errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
@@ -1083,9 +1077,9 @@
                         console.warn('No tiles loaded - switching to fallback');
                         showNotification('Primary map not loading, trying fallback...', 'info');
                         
-                        // Try CartoDB as fallback
-                        fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
-                            attribution: '© OpenStreetMap contributors © CARTO',
+                        // Try OpenStreetMap as fallback
+                        fallbackLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '© OpenStreetMap contributors',
                             maxZoom: 19
                         });
                         state.map.removeLayer(tileLayer);
@@ -1101,11 +1095,11 @@
                         tileLoadTimeout = null;
                     }
                     
-                    // Fallback to CartoDB if OpenStreetMap fails
+                    // Fallback to OpenStreetMap if CartoDB fails
                     if (!fallbackLayer) {
-                        console.log('Switching to fallback map provider (CartoDB Voyager)...');
-                        fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
-                            attribution: '© OpenStreetMap contributors © CARTO',
+                        console.log('Switching to fallback map provider (OpenStreetMap)...');
+                        fallbackLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                            attribution: '© OpenStreetMap contributors',
                             maxZoom: 19
                         });
                         state.map.removeLayer(tileLayer);
