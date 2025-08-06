@@ -340,23 +340,26 @@
         .map-container {
             flex: 1;
             position: relative;
-            background: #ffffff;
+            background: #f5f5f5;
         }
 
         #map {
             width: 100%;
             height: 100%;
-            background: #ffffff;
+            background: #f5f5f5;
         }
 
-        /* Full opacity for bold black streets */
+        /* Make streets darker with CSS filters */
         .leaflet-tile-pane {
             opacity: 1;
+            /* Increase contrast and reduce brightness to make streets much darker */
+            filter: contrast(1.8) brightness(0.7) saturate(0.8);
         }
 
-        /* Ensure markers stay fully visible */
+        /* Ensure markers stay fully visible and unaffected by filters */
         .leaflet-marker-pane {
             opacity: 1 !important;
+            filter: none !important;
         }
 
         .bulk-edit-panel {
@@ -1023,25 +1026,55 @@
                     attributionControl: true
                 });
                 
-                // Use Stamen Toner for bold black streets on white background
-                // Alternative styles you can try:
-                // 1. Stamen Toner (bold): 'https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png'
-                // 2. Stamen Toner Lite (softer): 'https://stamen-tiles-{s}.a.ssl.fastly.net/toner-lite/{z}/{x}/{y}.png'
-                // 3. Stamen Toner Background (no labels): 'https://stamen-tiles-{s}.a.ssl.fastly.net/toner-background/{z}/{x}/{y}.png'
-                // 4. CartoDB Dark Matter: 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}.png'
+                // Use standard OpenStreetMap - it has darker, more visible streets
+                // Alternative styles you can try by changing the URL:
+                // 1. Standard OSM (good contrast): 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+                // 2. CartoDB Voyager (darker streets): 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png'
+                // 3. CartoDB Dark (inverted): 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
+                // 4. OSM DE (German style, bolder): 'https://{s}.tile.openstreetmap.de/{z}/{x}/{y}.png'
                 
-                const tileLayer = L.tileLayer('https://stamen-tiles-{s}.a.ssl.fastly.net/toner/{z}/{x}/{y}.png', {
-                    attribution: 'Map tiles by <a href="http://stamen.com">Stamen Design</a>, under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>. Data by <a href="http://openstreetmap.org">OpenStreetMap</a>',
+                // TILE PROVIDER OPTIONS - Change the URL below to switch styles:
+                // Option 1 - CartoDB Voyager (darker streets, clean):
+                const tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
+                
+                // Option 2 - Standard OpenStreetMap (most detail):
+                // const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+                
+                // Option 3 - CartoDB Dark (white streets on dark background):
+                // const tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+                
+                // Option 4 - OpenStreetMap DE (German style, bolder):
+                // const tileUrl = 'https://tile.openstreetmap.de/{z}/{x}/{y}.png';
+                
+                console.log('Loading map tiles from:', tileUrl);
+                
+                const tileLayer = L.tileLayer(tileUrl, {
+                    attribution: '© OpenStreetMap contributors © CARTO',
                     maxZoom: 19,
-                    subdomains: 'abcd',
+                    minZoom: 2,
                     errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
                 });
                 
                 tileLayer.on('tileerror', function(error) {
-                    console.warn('Tile load error:', error);
+                    console.error('Tile load error:', error);
+                });
+                
+                tileLayer.on('tileload', function() {
+                    console.log('Tile loaded successfully');
                 });
                 
                 tileLayer.addTo(state.map);
+                
+                // Check if tiles are loading after a short delay
+                setTimeout(() => {
+                    const tiles = document.querySelectorAll('.leaflet-tile');
+                    if (tiles.length === 0) {
+                        console.warn('No tiles loaded - check internet connection or try a different tile provider');
+                        showNotification('Map tiles not loading - check internet connection', 'error');
+                    } else {
+                        console.log(`Map tiles loading: ${tiles.length} tiles`);
+                    }
+                }, 3000);
                 
                 state.map.on('error', function(e) {
                     console.error('Map error:', e);
