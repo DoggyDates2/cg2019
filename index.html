@@ -1044,14 +1044,14 @@
             color = color || '#999999';
             const strokeColor = hasCallout ? '#ff0000' : (isInSelection ? '#007bff' : (isSelected ? '#007bff' : '#000000'));
             const strokeWidth = isSelected ? 3 : (isInSelection ? 3 : 2);
-            const size = isInSelection ? 20 : 16;
+            const size = isInSelection ? 16 : 13;
             
             let icon;
             
             try {
                 if (group === 2) {
                     // Triangle for Group 2
-                    const svgSize = size + 4;
+                    const svgSize = size + 3;
                     icon = L.divIcon({
                         html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
                             <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize-2} L2 ${svgSize-2} Z" 
@@ -1139,7 +1139,7 @@
                 console.error('Error creating marker icon:', error);
                 // Fallback to simple circle
                 return L.divIcon({
-                    html: `<div style="width: 16px; height: 16px; background-color: #999999; border: 2px solid #000000; border-radius: 50%;"></div>`,
+                    html: `<div style="width: 13px; height: 13px; background-color: #999999; border: 2px solid #000000; border-radius: 50%;"></div>`,
                     className: 'custom-marker-fallback',
                     iconSize: [16, 16],
                     iconAnchor: [8, 8]
