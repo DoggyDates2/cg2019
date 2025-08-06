@@ -1500,7 +1500,7 @@
                         
                         // Format tooltip as "Driver:Group" then dog name on new line, with count if available, and notes if present
                         const driverDisplay = driver || 'No Driver';
-                        const groupDisplay = group || '?';
+                        const groupDisplay = row['Group'] || '?';  // Use original Group value, not parsed
                         const dogNameDisplay = row['Dog Name'] || 'Unknown';
                         const countValue = row['Count'] || '';
                         const notesValue = row['Notes'] || '';
