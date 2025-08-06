@@ -1488,18 +1488,26 @@
                         const isInSelection = dogId && state.selectedMarkers.has(dogId);
                         const hasCallout = row['Callout'] && row['Callout'].trim();
                         
-                        // Format tooltip as "Driver:Group" then dog name on new line, with count if available
+                        // Format tooltip as "Driver:Group" then dog name on new line, with count if available, and notes if present
                         const driverDisplay = driver || 'No Driver';
                         const groupDisplay = group || '?';
                         const dogNameDisplay = row['Dog Name'] || 'Unknown';
                         const countValue = row['Count'] || '';
+                        const notesValue = row['Notes'] || '';
                         
                         // Build tooltip with count included if present
                         let tooltipHtml = `<div style="text-align: center;"><strong>${driverDisplay}:${groupDisplay}</strong>`;
                         if (countValue && countValue.toString().trim() !== '') {
                             tooltipHtml += `  <span style="color: #ff6b6b; font-weight: bold;">(${countValue})</span>`;
                         }
-                        tooltipHtml += `<br/>${dogNameDisplay}</div>`;
+                        tooltipHtml += `<br/>${dogNameDisplay}`;
+                        
+                        // Add notes if present
+                        if (notesValue && notesValue.toString().trim() !== '') {
+                            tooltipHtml += `<br/><span style="font-style: italic; color: #666;">${escapeHtml(notesValue)}</span>`;
+                        }
+                        
+                        tooltipHtml += `</div>`;
                         
                         const marker = L.marker([offsetLat, offsetLng], {
                             icon: createMarkerIcon(color, false, 'group', group, isInSelection, row['Dog Name'], hasCallout),
