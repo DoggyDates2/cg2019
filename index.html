@@ -552,11 +552,14 @@
             border: 1px solid #333 !important;
             color: white !important;
             font-weight: 600 !important;
-            font-size: 12px !important;
-            padding: 4px 8px !important;
+            font-size: 16px !important;  /* Increased from 12px */
+            padding: 8px 12px !important;  /* Increased padding for bigger text */
             border-radius: 4px !important;
             box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important;
-            white-space: nowrap !important;
+            white-space: normal !important;  /* Changed from nowrap to allow wrapping */
+            max-width: 250px !important;  /* Set max width for text wrapping */
+            text-align: center !important;  /* Center align the text */
+            line-height: 1.4 !important;  /* Better line spacing */
         }
         
         .leaflet-tooltip-top:before {
@@ -1528,7 +1531,7 @@
                         marker.bindTooltip(tooltipHtml, {
                             permanent: false,
                             direction: 'top',
-                            offset: [0, -10],
+                            offset: [0, -15],  // Adjusted offset for bigger tooltip
                             className: 'custom-tooltip',
                             opacity: 0.95
                         });
