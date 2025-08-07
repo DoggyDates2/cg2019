@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Map</title>
+    <title>🐕 Dog Walking Map v2.3 - Group Editing</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -597,6 +597,13 @@
             padding: 10px;
             text-align: center;
         }
+
+        .version-indicator {
+            margin-left: auto;
+            padding: 0 10px;
+            color: #666;
+            font-size: 11px;
+        }
     </style>
 </head>
 <body>
@@ -620,6 +627,10 @@
         <div class="control-group">
             <button class="btn btn-secondary" id="resetColorsBtn">🎨 Reset Colors</button>
             <button class="btn btn-info" id="testConnectionBtn">🔌 Test Connection</button>
+        </div>
+        
+        <div class="version-indicator">
+            v2.3 - Group Edit
         </div>
     </div>
 
@@ -1983,7 +1994,7 @@
                 const driverName = row['Driver'] || '';
                 const dogName = row['Dog Name'] || 'Unknown';
                 const group = parseGroup(row['Group']);  // Keep for internal use
-                const groupText = row['Group'] || 'No Group';  // Use original for display
+                const groupText = row['Group'] || '';  // Use original for display
                 const address = row['Address'] || '';
                 const capacity = row['Capacity'] || '';
                 const callout = row['Callout'] || '';
@@ -1996,9 +2007,9 @@
                     ${escapeHtml(dogName)}
                 </div>`;
                 
-                // Add group number
+                // Add group number - IMPORTANT: Keep this visual indicator
                 infoHtml += `<div style="text-align: center; margin-bottom: 6px; font-size: 16px; font-weight: bold; color: #333;">
-                    Group ${escapeHtml(groupText)}
+                    Group ${escapeHtml(groupText || '?')}
                 </div>`;
                 
                 // Add Dog ID if present
@@ -2030,21 +2041,29 @@
                     </div>`;
                 }
                 
-                // Add driver edit section - using actualIndex properly
+                // Add driver and group edit section - using actualIndex properly
                 const detailsHtml = `
                     ${infoHtml}
                     
                     <div style="border-top: 1px solid #dee2e6; padding-top: 8px; margin-top: 8px;">
                         <label style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">Driver:</label>
-                        <div style="margin-bottom: 6px;">
+                        <div style="margin-bottom: 8px;">
                             <input type="text" id="editDriver" value="${escapeHtml(driverName)}" 
                                    placeholder="Enter driver name"
                                    style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
                                    autocomplete="off">
                         </div>
                         
+                        <label style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">Group:</label>
+                        <div style="margin-bottom: 8px;">
+                            <input type="text" id="editGroup" value="${escapeHtml(groupText)}" 
+                                   placeholder="1, 2, 3, 1&2, etc."
+                                   style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
+                                   autocomplete="off">
+                        </div>
+                        
                         <div style="display: flex; gap: 4px;">
-                            <button class="btn btn-primary" onclick="saveDriverName()" 
+                            <button class="btn btn-primary" onclick="saveMarkerData()" 
                                     id="saveBtn" style="flex: 1; padding: 6px 8px; font-size: 12px;">
                                 💾 Save
                             </button>
@@ -2059,15 +2078,29 @@
                 detailsContent.innerHTML = detailsHtml;
                 
                 setTimeout(() => {
-                    const input = document.getElementById('editDriver');
-                    if (input) {
-                        input.focus();
-                        input.select();
+                    const driverInput = document.getElementById('editDriver');
+                    const groupInput = document.getElementById('editGroup');
+                    
+                    if (driverInput) {
+                        driverInput.focus();
+                        driverInput.select();
                         
-                        input.addEventListener('keydown', function(e) {
+                        driverInput.addEventListener('keydown', function(e) {
                             if (e.key === 'Enter') {
                                 e.preventDefault();
-                                saveDriverName();
+                                saveMarkerData();
+                            } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                cancelEdit();
+                            }
+                        });
+                    }
+                    
+                    if (groupInput) {
+                        groupInput.addEventListener('keydown', function(e) {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                saveMarkerData();
                             } else if (e.key === 'Escape') {
                                 e.preventDefault();
                                 cancelEdit();
@@ -2247,16 +2280,18 @@
         }
 
         // ==================== SAVE FUNCTIONS WITH GOOGLE SHEETS INTEGRATION ====================
-        async function saveDriverName() {
-            const editInput = document.getElementById('editDriver');
+        async function saveMarkerData() {
+            const editDriverInput = document.getElementById('editDriver');
+            const editGroupInput = document.getElementById('editGroup');
             const saveBtn = document.getElementById('saveBtn');
             
-            if (!editInput) {
-                showNotification('Error: Edit input field not found', 'error');
+            if (!editDriverInput || !editGroupInput) {
+                showNotification('Error: Edit fields not found', 'error');
                 return;
             }
             
-            const newDriverName = editInput.value.trim();
+            const newDriverName = editDriverInput.value.trim();
+            const newGroupValue = editGroupInput.value.trim();
             
             if (!state.selectedRow) {
                 showNotification('Error: No row selected', 'error');
@@ -2271,6 +2306,7 @@
                 }
                 
                 const oldDriver = state.selectedRow['Driver'] || '';
+                const oldGroup = state.selectedRow['Group'] || '';
                 
                 // Get the correct sheet row index
                 const sheetRowIndex = getSheetRowIndex(state.selectedRow);
@@ -2283,6 +2319,30 @@
                 
                 // Update local data immediately for responsive UI
                 state.selectedRow['Driver'] = newDriverName;
+                state.selectedRow['Group'] = newGroupValue;
+                
+                // Update the marker's group property and icon
+                const dogId = getDogId(state.selectedRow);
+                const markerData = state.markerLookup.get(dogId);
+                if (markerData) {
+                    // Update the group in markerData
+                    markerData.group = parseGroup(newGroupValue);
+                    
+                    // Update the marker icon with new shape based on group
+                    const driver = newDriverName || state.selectedRow['Combined'] || '';
+                    let color = state.colorMap[driver] || '#999999';
+                    
+                    if (driver.toLowerCase().includes('unassigned')) {
+                        color = '#000000';
+                    }
+                    
+                    const isInSelection = dogId && state.selectedMarkers.has(dogId);
+                    const hasCallout = state.selectedRow['Callout'] && state.selectedRow['Callout'].trim();
+                    
+                    // Update marker icon with new group shape
+                    const newIcon = createMarkerIcon(color, true, 'group', markerData.group, isInSelection, state.selectedRow['Dog Name'], hasCallout);
+                    markerData.marker.setIcon(newIcon);
+                }
                 
                 // Update UI immediately
                 assignDriverColors();
@@ -2291,18 +2351,19 @@
                 // Show immediate feedback
                 showNotification('Saving to Google Sheets...', 'info', 1000);
                 
-                // Send to Google Sheets with the already calculated row index
+                // Send to Google Sheets with both fields
                 const payload = {
                     action: 'updateRow',
                     rowIndex: sheetRowIndex,  // Already includes +2 adjustment
                     updatedData: {
-                        'Driver': newDriverName
+                        'Driver': newDriverName,
+                        'Group': newGroupValue
                     }
                 };
                 
                 await callAppsScript(payload);
                 
-                showNotification('✅ Driver updated in Google Sheets!', 'success', 2000);
+                showNotification('✅ Data updated in Google Sheets!', 'success', 2000);
                 
                 // Re-enable button
                 if (saveBtn) {
@@ -2311,7 +2372,7 @@
                 }
                 
             } catch (error) {
-                console.error('Error in saveDriverName:', error);
+                console.error('Error in saveMarkerData:', error);
                 showNotification(`Error saving: ${error.message}`, 'error');
                 
                 // Restore button state
@@ -2323,10 +2384,16 @@
                 // Revert local changes on error
                 if (state.selectedRow && typeof oldDriver !== 'undefined') {
                     state.selectedRow['Driver'] = oldDriver;
+                    state.selectedRow['Group'] = oldGroup;
                     assignDriverColors();
                     updateMap();
                 }
             }
+        }
+
+        // Keep the old function name for backward compatibility, redirect to new one
+        async function saveDriverName() {
+            return saveMarkerData();
         }
 
         async function bulkUpdateSelected() {
@@ -2547,7 +2614,7 @@
                 });
                 
                 console.log('Application initialized successfully');
-                console.log('Google Sheets Write-back Enabled - Fixed Row Indexing');
+                console.log('Google Sheets Write-back Enabled - Driver and Group Editing');
                 
             } catch (error) {
                 console.error('Error during application initialization:', error);
@@ -2559,6 +2626,7 @@
         window.filterByCategory = filterByCategory;
         window.clearSelection = clearSelection;
         window.saveDriverName = saveDriverName;
+        window.saveMarkerData = saveMarkerData;
         window.cancelEdit = cancelEdit;
         window.bulkUpdateSelected = bulkUpdateSelected;
         window.testAppsScriptConnection = testAppsScriptConnection;
@@ -2572,7 +2640,7 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map v2.2 - Fixed Row Indexing');
+        console.log('Dog Walking Map v2.3 - Group Editing Enabled');
     </script>
 </body>
 </html>
