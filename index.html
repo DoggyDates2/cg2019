@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Map v2.3 - Group Editing</title>
+    <title>🐕 Dog Walking Map v2.4 - Business Codes Support</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -630,7 +630,7 @@
         </div>
         
         <div class="version-indicator">
-            v2.3 - Group Edit
+            v2.4 - Business Codes
         </div>
     </div>
 
@@ -788,29 +788,84 @@
             return true;
         }
 
-        // Parse group from the Group column - supports multi-groups
+        // Parse group from the Group column - supports multi-groups and business codes (DD, SS, AA, F)
         function parseGroup(groupValue) {
             if (!groupValue) return null;
             
-            const strValue = String(groupValue).trim();
+            const originalValue = String(groupValue).trim();
+            let strValue = originalValue;
             if (!strValue) return null;
             
-            // Handle multi-group combinations like "1&2", "2&3", "1&2&3"
+            // Remove business codes (DD, SS, AA, F) but keep the group numbers
+            // Business code meanings:
+            // DD = Discount Day
+            // SS = Single Siblings  
+            // AA = (business code)
+            // F = (business code)
+            // 
+            // Supported patterns:
+            // Single groups: 1, 2, 3, 1DD1, 2F2, 3SS3, 1AA1
+            // Two groups: 1&2, 2&3 (with codes: 1DD&2, 2SS&3)
+            // All three groups: 123, 1DD23, 1SS23, 1AA23, 2DD23, 3DD23
+            // Note: Groups 1&3 together always means all three (123)
+            // 
+            // Examples: 3DD3 -> 3, 2F2 -> 2, 1DD&2 -> 12, 1DD23 -> 123
+            
+            // Handle patterns with & first (like 1DD&2, 2SS&3)
+            if (strValue.includes('&')) {
+                // Remove business codes from each part
+                const parts = strValue.split('&').map(part => {
+                    // Remove DD, SS, AA, F from each part
+                    return part.replace(/DD|SS|AA|F/g, '').trim();
+                });
+                strValue = parts.join('&');
+            } else {
+                // Remove business codes from the whole string
+                strValue = strValue.replace(/DD|SS|AA|F/g, '');
+            }
+            
+            // Debug logging for business codes (only log if different from original)
+            if (strValue !== originalValue && originalValue.match(/DD|SS|AA|F/)) {
+                console.log(`Business code parsed: "${originalValue}" -> "${strValue}"`);
+            }
+            
+            // Now parse the cleaned string
+            
+            // Handle patterns like "33" -> "3", "22" -> "2", "11" -> "1"
+            if (strValue.match(/^([123])\1$/)) {
+                return parseInt(strValue[0], 10);
+            }
+            
+            // Handle multi-group combinations with & (only 1&2 or 2&3 are valid)
             if (strValue.includes('&')) {
                 const groups = strValue.split('&')
                     .map(g => g.trim())
                     .filter(g => g.match(/^[123]$/))
                     .sort();
-                if (groups.length > 1) {
-                    return groups.join('');
+                if (groups.length === 2) {
+                    // Only valid two-group combinations are 1&2 or 2&3
+                    const joined = groups.join('');
+                    if (joined === '12' || joined === '23') {
+                        return joined;
+                    }
+                    // If it's 1&3, treat as all three groups
+                    if (joined === '13') {
+                        return '123';
+                    }
                 } else if (groups.length === 1) {
                     return parseInt(groups[0], 10);
                 }
             }
             
-            // Handle combined groups without separators like "12", "23", "123"
+            // Handle combined groups without separators like "12", "23", "123", "13"
             if (strValue.match(/^[123]{2,3}$/)) {
-                return strValue;
+                // Remove duplicates and sort
+                const uniqueGroups = [...new Set(strValue.split(''))].sort().join('');
+                // If it's "13", treat as all three groups (123)
+                if (uniqueGroups === '13') {
+                    return '123';
+                }
+                return uniqueGroups;
             }
             
             // Handle single groups
@@ -1099,21 +1154,6 @@
                                      fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                         </svg>`,
                         className: `custom-star-marker ${isInSelection ? 'marker-selected' : ''}`,
-                        iconSize: [svgSize, svgSize],
-                        iconAnchor: [svgSize/2, svgSize/2]
-                    });
-                } else if (group === '13') {
-                    // Pentagon for Group 1&3
-                    const svgSize = size + 4;
-                    const cx = svgSize/2;
-                    const cy = svgSize/2;
-                    const r = (svgSize-4)/2;
-                    icon = L.divIcon({
-                        html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
-                            <polygon points="${cx},${cy-r} ${cx+r*0.95},${cy-r*0.31} ${cx+r*0.59},${cy+r*0.81} ${cx-r*0.59},${cy+r*0.81} ${cx-r*0.95},${cy-r*0.31}" 
-                                     fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                        </svg>`,
-                        className: `custom-pentagon-marker ${isInSelection ? 'marker-selected' : ''}`,
                         iconSize: [svgSize, svgSize],
                         iconAnchor: [svgSize/2, svgSize/2]
                     });
@@ -1436,15 +1476,17 @@
                         }
                     }
                     
-                    // Group filter
+                    // Group filter (using parseGroup to handle business codes)
                     const group = parseGroup(row['Group']);
                     if (group !== null) {
                         if (typeof group === 'string' && group.length > 1) {
+                            // Multi-group: check if any active group is in the combination
                             const hasActiveGroup = group.split('').some(g => state.activeGroups.includes(parseInt(g)));
                             if (!hasActiveGroup) {
                                 return false;
                             }
                         } else if (typeof group === 'number') {
+                            // Single group
                             if (!state.activeGroups.includes(group)) {
                                 return false;
                             }
@@ -1511,17 +1553,17 @@
                         
                         // Format tooltip as "Driver:Group" then dog name on new line, with count if available, and notes if present
                         const driverDisplay = driver || 'No Driver';
-                        const groupDisplay = row['Group'] || '?';  // Use original Group value, not parsed
+                        const groupDisplay = row['Group'] || '?';  // Use original Group value with business codes intact
                         const dogNameDisplay = row['Dog Name'] || 'Unknown';
                         const countValue = row['Count'] || '';
                         const notesValue = row['Notes'] || '';
                         
                         // Build tooltip with count included if present
-                        let tooltipHtml = `<div style="text-align: center;"><strong>${driverDisplay}:${groupDisplay}</strong>`;
+                        let tooltipHtml = `<div style="text-align: center;"><strong>${escapeHtml(driverDisplay)}:${escapeHtml(groupDisplay)}</strong>`;
                         if (countValue && countValue.toString().trim() !== '') {
-                            tooltipHtml += `  <span style="color: #ff6b6b; font-weight: bold;">(${countValue})</span>`;
+                            tooltipHtml += `  <span style="color: #ff6b6b; font-weight: bold;">(${escapeHtml(countValue)})</span>`;
                         }
-                        tooltipHtml += `<br/>${dogNameDisplay}`;
+                        tooltipHtml += `<br/>${escapeHtml(dogNameDisplay)}`;
                         
                         // Add notes if present
                         if (notesValue && notesValue.toString().trim() !== '') {
@@ -1993,8 +2035,8 @@
                 const actualIndex = row['_rowIndex'] ?? state.allData.indexOf(row);
                 const driverName = row['Driver'] || '';
                 const dogName = row['Dog Name'] || 'Unknown';
-                const group = parseGroup(row['Group']);  // Keep for internal use
-                const groupText = row['Group'] || '';  // Use original for display
+                const group = parseGroup(row['Group']);  // Parsed for shape display
+                const groupText = row['Group'] || '';  // Original value with business codes
                 const address = row['Address'] || '';
                 const capacity = row['Capacity'] || '';
                 const callout = row['Callout'] || '';
@@ -2007,7 +2049,7 @@
                     ${escapeHtml(dogName)}
                 </div>`;
                 
-                // Add group number - IMPORTANT: Keep this visual indicator
+                // Add group number - IMPORTANT: Keep this visual indicator with business codes visible
                 infoHtml += `<div style="text-align: center; margin-bottom: 6px; font-size: 16px; font-weight: bold; color: #333;">
                     Group ${escapeHtml(groupText || '?')}
                 </div>`;
@@ -2057,7 +2099,8 @@
                         <label style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">Group:</label>
                         <div style="margin-bottom: 8px;">
                             <input type="text" id="editGroup" value="${escapeHtml(groupText)}" 
-                                   placeholder="1, 2, 3, 1&2, etc."
+                                   placeholder="1, 2, 3, 1&2, 1DD1, 2SS2, etc."
+                                   title="Supports business codes: DD, SS, AA, F (e.g., 1DD1, 2F2, 1SS&2)"
                                    style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
                                    autocomplete="off">
                         </div>
@@ -2143,7 +2186,7 @@
                             // Get the number of dogs (default to 1 if not specified)
                             const dogCount = parseInt(row['Number of Dogs'] || '1') || 1;
                             
-                            // Parse the group assignment
+                            // Parse the group assignment (handles business codes)
                             const group = parseGroup(row['Group']);
                             
                             if (group !== null) {
@@ -2615,6 +2658,8 @@
                 
                 console.log('Application initialized successfully');
                 console.log('Google Sheets Write-back Enabled - Driver and Group Editing');
+                console.log('Business codes supported: DD (Discount Day), SS (Single Siblings), AA, F');
+                console.log('Example patterns: 1DD1→⭕, 2F2→▲, 3SS3→■, 1DD&2→⭐, 2AA&3→⯃, 1SS23→⬢');
                 
             } catch (error) {
                 console.error('Error during application initialization:', error);
@@ -2635,12 +2680,18 @@
         window.addEventListener('error', function(event) {
             console.error('Global error:', event.error);
             console.error('Stack:', event.error?.stack);
+            
+            // If error is related to group parsing, provide helpful info
+            if (event.error?.message?.includes('group') || event.error?.message?.includes('Group')) {
+                console.log('Group parsing tip: Supported business codes are DD, SS, AA, F');
+                console.log('Valid patterns: 1, 2, 3, 1DD1, 2F2, 1&2, 1DD&2, 123, 1SS23, etc.');
+            }
         });
 
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map v2.3 - Group Editing Enabled');
+        console.log('Dog Walking Map v2.4 - Business Codes Support (DD, SS, AA, F)');
     </script>
 </body>
 </html>
