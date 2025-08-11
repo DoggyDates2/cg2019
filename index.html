@@ -820,8 +820,11 @@
                 });
                 strValue = parts.join('&');
             } else {
-                // Remove business codes from the whole string
-                strValue = strValue.replace(/DD|SS|AA|F/g, '');
+                // Remove business codes more carefully - only when they appear between numbers
+                // This prevents removing F from names like "Fitz"
+                strValue = strValue.replace(/(\d)(DD|SS|AA|F)(\d)/g, '$1$3');
+                // Also handle cases where business code is at the end like "1DD"
+                strValue = strValue.replace(/(\d)(DD|SS|AA|F)$/g, '$1');
             }
             
             // Debug logging for business codes (only log if different from original)
