@@ -2185,7 +2185,8 @@
                             
                             // Get the number of dogs (default to 1 if not specified)
                             const dogCount = parseInt(row['Number of Dogs'] || '1') || 1;
-                            
+                            // Add this debug line:
+                            console.log(`Dog: ${row['Dog Name']}, Group: ${row['Group']}, Count: ${dogCount}`);
                             // Parse the group assignment (handles business codes)
                             const group = parseGroup(row['Group']);
                             
