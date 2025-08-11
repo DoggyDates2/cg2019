@@ -816,7 +816,7 @@
                 // Remove business codes from each part
                 const parts = strValue.split('&').map(part => {
                     // Remove DD, SS, AA, F from each part
-                    return part.replace(/DD|SS|AA|F/g, '').trim();
+                    return part.replace(/DD|SS|AA|F|XX/g, '').trim();
                 });
                 strValue = parts.join('&');
             } else {
@@ -824,7 +824,7 @@
                 // This prevents removing F from names like "Fitz"
                 strValue = strValue.replace(/(\d)(DD|SS|AA|F|XX)(\d)/g, '$1$3');
                 // Also handle cases where business code is at the end like "1DD"
-                strValue = strValue.replace(/(\d)(DD|SS|AA|F)$/g, '$1');
+                strValue = strValue.replace(/(\d)(DD|SS|AA|F|XX)$/g, '$1');
             }
             
             // Debug logging for business codes (only log if different from original)
