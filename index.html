@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Map v2.4 - Business Codes Support</title>
+    <title>🐕 Dog Walking Map v2.5 - Dynamic Count Tooltips</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -630,7 +630,7 @@
         </div>
         
         <div class="version-indicator">
-            v2.4 - Business Codes
+            v2.5 - Dynamic Count Tooltips
         </div>
     </div>
 
@@ -1554,17 +1554,52 @@
                         const isInSelection = dogId && state.selectedMarkers.has(dogId);
                         const hasCallout = row['Callout'] && row['Callout'].trim();
                         
-                        // Format tooltip as "Driver:Group" then dog name on new line, with count if available, and notes if present
+                        // Format tooltip as "Driver:Group" then dog name on new line, with dynamically calculated count, and notes if present
                         const driverDisplay = driver || 'No Driver';
                         const groupDisplay = row['Group'] || '?';  // Use original Group value with business codes intact
                         const dogNameDisplay = row['Dog Name'] || 'Unknown';
-                        const countValue = row['Count'] || '';
                         const notesValue = row['Notes'] || '';
                         
-                        // Build tooltip with count included if present
+                        // Calculate group counts for this driver dynamically (same logic as legend)
+                        let groupCounts = null;
+                        if (driver && state.allData && state.allData.length > 0) {
+                            groupCounts = { 1: 0, 2: 0, 3: 0 };
+                            
+                            state.allData.forEach(dataRow => {
+                                if (!dataRow) return;
+                                const rowDriver = dataRow['Driver'] || dataRow['Combined'] || '';
+                                if (rowDriver !== driver) return;
+                                
+                                // Get the number of dogs (default to 1 if not specified)
+                                const dogCount = parseInt(dataRow['Number of Dogs'] || '1') || 1;
+                                
+                                // Parse the group assignment (handles business codes)
+                                const parsedGroup = parseGroup(dataRow['Group']);
+                                
+                                if (parsedGroup !== null) {
+                                    if (typeof parsedGroup === 'string' && parsedGroup.length > 1) {
+                                        // Multi-group: split and add to each
+                                        parsedGroup.split('').forEach(g => {
+                                            const groupNum = parseInt(g);
+                                            if (groupNum >= 1 && groupNum <= 3) {
+                                                groupCounts[groupNum] += dogCount;
+                                            }
+                                        });
+                                    } else if (typeof parsedGroup === 'number' && parsedGroup >= 1 && parsedGroup <= 3) {
+                                        // Single group
+                                        groupCounts[parsedGroup] += dogCount;
+                                    }
+                                }
+                            });
+                        }
+                        
+                        // Build tooltip with dynamically calculated count
                         let tooltipHtml = `<div style="text-align: center;"><strong>${escapeHtml(driverDisplay)}:${escapeHtml(groupDisplay)}</strong>`;
-                        if (countValue && countValue.toString().trim() !== '') {
-                            tooltipHtml += `  <span style="color: #ff6b6b; font-weight: bold;">(${escapeHtml(countValue)})</span>`;
+                        if (groupCounts) {
+                            const total = groupCounts[1] + groupCounts[2] + groupCounts[3];
+                            if (total > 0) {
+                                tooltipHtml += `  <span style="color: #ff6b6b; font-weight: bold;">(${groupCounts[1]}, ${groupCounts[2]}, ${groupCounts[3]})</span>`;
+                            }
                         }
                         tooltipHtml += `<br/>${escapeHtml(dogNameDisplay)}`;
                         
@@ -2188,8 +2223,7 @@
                             
                             // Get the number of dogs (default to 1 if not specified)
                             const dogCount = parseInt(row['Number of Dogs'] || '1') || 1;
-                            // Add this debug line:
-                            console.log(`Dog: ${row['Dog Name']}, Group: ${row['Group']}, Raw: "${row['Number of Dogs']}", Count: ${dogCount}`);
+                            
                             // Parse the group assignment (handles business codes)
                             const group = parseGroup(row['Group']);
                             
@@ -2662,6 +2696,7 @@
                 
                 console.log('Application initialized successfully');
                 console.log('Google Sheets Write-back Enabled - Driver and Group Editing');
+                console.log('Dynamic tooltip counts - calculated in real-time like legend');
                 console.log('Business codes supported: DD (Discount Day), SS (Single Siblings), AA, F');
                 console.log('Example patterns: 1DD1→⭕, 2F2→▲, 3SS3→■, 1DD&2→⭐, 2AA&3→⯃, 1SS23→⬢');
                 
@@ -2695,7 +2730,7 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map v2.4 - Business Codes Support (DD, SS, AA, F)');
+        console.log('Dog Walking Map v2.5 - Dynamic Count Tooltips (real-time calculation)');
     </script>
 </body>
 </html>
