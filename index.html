@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Map v2.5 - Dynamic Count Tooltips</title>
+    <title>🐕 Dog Walking Map v2.6 - Synced Counts</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -630,7 +630,7 @@
         </div>
         
         <div class="version-indicator">
-            v2.5 - Dynamic Count Tooltips
+            v2.6 - Synced Legend/Tooltip Counts
         </div>
     </div>
 
@@ -727,7 +727,8 @@
             isUpdating: false,
             pendingSaves: new Map(),
             saveQueue: [],
-            isSaving: false
+            isSaving: false,
+            driverCounts: {}  // Store driver counts here for tooltip use
         };
 
         // ==================== UTILITY FUNCTIONS ====================
@@ -1435,10 +1436,27 @@
         // ==================== MAP UPDATE ====================
         function updateMap() {
             try {
+                console.log('UpdateMap called - using legend counts for tooltips');
+                
+                // Update legend FIRST to calculate driver counts
+                updateLegend();
+                console.log('Driver counts after legend update:', state.driverCounts);
+                
                 // Clear existing markers
                 state.markers.forEach(m => {
                     if (m && m.marker) {
                         try {
+                            // Unbind tooltip first using dynamic method name
+                            const getMethod = 'get' + 'Tooltip';
+                            const unbindMethod = 'unbind' + 'Tooltip';
+                            
+                            if (m.marker[getMethod] && typeof m.marker[getMethod] === 'function') {
+                                const tooltip = m.marker[getMethod]();
+                                if (tooltip && m.marker[unbindMethod]) {
+                                    m.marker[unbindMethod]();
+                                }
+                            }
+                            
                             m.marker.off();
                             if (state.map.hasLayer(m.marker)) {
                                 state.map.removeLayer(m.marker);
@@ -1554,53 +1572,28 @@
                         const isInSelection = dogId && state.selectedMarkers.has(dogId);
                         const hasCallout = row['Callout'] && row['Callout'].trim();
                         
-                        // Format tooltip as "Driver:Group" then dog name on new line, with dynamically calculated count, and notes if present
+                        // Format tooltip as "Driver:Group" then dog name on new line, using counts from legend
                         const driverDisplay = driver || 'No Driver';
                         const groupDisplay = row['Group'] || '?';  // Use original Group value with business codes intact
                         const dogNameDisplay = row['Dog Name'] || 'Unknown';
                         const notesValue = row['Notes'] || '';
                         
-                        // Calculate group counts for this driver dynamically (same logic as legend)
-                        let groupCounts = null;
-                        if (driver && state.allData && state.allData.length > 0) {
-                            groupCounts = { 1: 0, 2: 0, 3: 0 };
-                            
-                            state.allData.forEach(dataRow => {
-                                if (!dataRow) return;
-                                const rowDriver = dataRow['Driver'] || dataRow['Combined'] || '';
-                                if (rowDriver !== driver) return;
-                                
-                                // Get the number of dogs (default to 1 if not specified)
-                                const dogCount = parseInt(dataRow['Number of Dogs'] || '1') || 1;
-                                
-                                // Parse the group assignment (handles business codes)
-                                const parsedGroup = parseGroup(dataRow['Group']);
-                                
-                                if (parsedGroup !== null) {
-                                    if (typeof parsedGroup === 'string' && parsedGroup.length > 1) {
-                                        // Multi-group: split and add to each
-                                        parsedGroup.split('').forEach(g => {
-                                            const groupNum = parseInt(g);
-                                            if (groupNum >= 1 && groupNum <= 3) {
-                                                groupCounts[groupNum] += dogCount;
-                                            }
-                                        });
-                                    } else if (typeof parsedGroup === 'number' && parsedGroup >= 1 && parsedGroup <= 3) {
-                                        // Single group
-                                        groupCounts[parsedGroup] += dogCount;
-                                    }
-                                }
-                            });
-                        }
-                        
-                        // Build tooltip with dynamically calculated count
+                        // Use the pre-calculated counts from the legend (stored in state.driverCounts)
                         let tooltipHtml = `<div style="text-align: center;"><strong>${escapeHtml(driverDisplay)}:${escapeHtml(groupDisplay)}</strong>`;
-                        if (groupCounts) {
-                            const total = groupCounts[1] + groupCounts[2] + groupCounts[3];
+                        
+                        // Get counts from the stored legend data
+                        if (driver && state.driverCounts && state.driverCounts[driver]) {
+                            const counts = state.driverCounts[driver];
+                            const total = counts[1] + counts[2] + counts[3];
                             if (total > 0) {
-                                tooltipHtml += `  <span style="color: #ff6b6b; font-weight: bold;">(${groupCounts[1]}, ${groupCounts[2]}, ${groupCounts[3]})</span>`;
+                                tooltipHtml += `  <span style="color: #ff6b6b; font-weight: bold;">(${counts[1]}, ${counts[2]}, ${counts[3]})</span>`;
+                            }
+                            // Debug: Log first few tooltips to verify counts
+                            if (state.markers.length < 3) {
+                                console.log(`Tooltip for ${driver}: (${counts[1]}, ${counts[2]}, ${counts[3]})`);
                             }
                         }
+                        
                         tooltipHtml += `<br/>${escapeHtml(dogNameDisplay)}`;
                         
                         // Add notes if present
@@ -1618,14 +1611,20 @@
                         // Add marker to map first
                         marker.addTo(state.map);
                         
-                        // Create and bind tooltip
-                        marker.bindTooltip(tooltipHtml, {
-                            permanent: false,
-                            direction: 'top',
-                            offset: [0, -15],  // Adjusted offset for bigger tooltip
-                            className: 'custom-tooltip',
-                            opacity: 0.95
-                        });
+                        // Bind tooltip using the correct Leaflet method: bindTooltip
+                        const tooltipMethod = 'bind' + 'Tooltip'; // Tooltip with capital T, two o's
+                        if (typeof marker[tooltipMethod] === 'function') {
+                            marker[tooltipMethod](tooltipHtml, {
+                                permanent: false,
+                                direction: 'top',
+                                offset: [0, -15],
+                                className: 'custom-tooltip',
+                                opacity: 0.95
+                            });
+                        } else {
+                            console.error('Method ' + tooltipMethod + ' not found on marker');
+                            console.log('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(marker)).sort());
+                        }
 
                         // Store additional data for the marker
                         marker._rowData = row;
@@ -1671,7 +1670,7 @@
                     }
                 });
 
-                updateLegend();
+                // Legend already updated at the beginning of updateMap()
                 
                 // Fit bounds if we have markers
                 if (state.markers.length > 0 && state.markers.length < 100) {
@@ -2205,6 +2204,9 @@
                 const sortedEntries = Object.entries(state.colorMap).sort(([a], [b]) => a.localeCompare(b));
                 const legendItems = [];
                 
+                // Clear and recalculate driver counts
+                state.driverCounts = {};
+                
                 sortedEntries.forEach(([key, color]) => {
                     if (!key || !color) return;
                     
@@ -2242,6 +2244,9 @@
                                 }
                             }
                         });
+                        
+                        // Store the counts for tooltip use
+                        state.driverCounts[key] = groupCounts;
                         
                         // Only show counts if there are any dogs
                         const total = groupCounts[1] + groupCounts[2] + groupCounts[3];
@@ -2402,32 +2407,24 @@
                 state.selectedRow['Driver'] = newDriverName;
                 state.selectedRow['Group'] = newGroupValue;
                 
-                // Update the marker's group property and icon
-                const dogId = getDogId(state.selectedRow);
-                const markerData = state.markerLookup.get(dogId);
-                if (markerData) {
-                    // Update the group in markerData
-                    markerData.group = parseGroup(newGroupValue);
-                    
-                    // Update the marker icon with new shape based on group
-                    const driver = newDriverName || state.selectedRow['Combined'] || '';
-                    let color = state.colorMap[driver] || '#999999';
-                    
-                    if (driver.toLowerCase().includes('unassigned')) {
-                        color = '#000000';
-                    }
-                    
-                    const isInSelection = dogId && state.selectedMarkers.has(dogId);
-                    const hasCallout = state.selectedRow['Callout'] && state.selectedRow['Callout'].trim();
-                    
-                    // Update marker icon with new group shape
-                    const newIcon = createMarkerIcon(color, true, 'group', markerData.group, isInSelection, state.selectedRow['Dog Name'], hasCallout);
-                    markerData.marker.setIcon(newIcon);
-                }
+                // Clear marker lookups to force complete refresh
+                state.markerLookup.clear();
+                state.coordinateLookup.clear();
                 
                 // Update UI immediately
                 assignDriverColors();
+                
+                // Force complete map refresh to update tooltips
                 updateMap();
+                
+                // Re-select the marker after refresh if it still exists
+                setTimeout(() => {
+                    const dogId = getDogId(state.selectedRow);
+                    const markerData = state.markerLookup.get(dogId);
+                    if (markerData && markerData.marker) {
+                        selectMarker(markerData.marker, state.selectedRow, state.selectedRow['_rowIndex'], markerData.group);
+                    }
+                }, 100);
                 
                 // Show immediate feedback
                 showNotification('Saving to Google Sheets...', 'info', 1000);
@@ -2451,6 +2448,12 @@
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = '💾 Save';
                 }
+                
+                // Reload data to ensure tooltips refresh with new counts
+                setTimeout(() => {
+                    console.log('Reloading data to refresh tooltips...');
+                    loadData();
+                }, 500);
                 
             } catch (error) {
                 console.error('Error in saveMarkerData:', error);
@@ -2544,6 +2547,10 @@
                     row['Driver'] = newDriverName;
                 });
                 
+                // Clear marker lookups to force complete refresh
+                state.markerLookup.clear();
+                state.coordinateLookup.clear();
+                
                 // Update UI immediately
                 assignDriverColors();
                 updateMap();
@@ -2575,6 +2582,12 @@
                     bulkBtn.disabled = false;
                     bulkBtn.innerHTML = '💾 Update All';
                 }
+                
+                // Reload data to ensure tooltips refresh with new counts
+                setTimeout(() => {
+                    console.log('Reloading data to refresh tooltips after bulk update...');
+                    loadData();
+                }, 500);
                 
             } catch (error) {
                 console.error('Bulk update error:', error);
@@ -2696,7 +2709,7 @@
                 
                 console.log('Application initialized successfully');
                 console.log('Google Sheets Write-back Enabled - Driver and Group Editing');
-                console.log('Dynamic tooltip counts - calculated in real-time like legend');
+                console.log('Tooltips now display exact legend counts - perfectly synced');
                 console.log('Business codes supported: DD (Discount Day), SS (Single Siblings), AA, F');
                 console.log('Example patterns: 1DD1→⭕, 2F2→▲, 3SS3→■, 1DD&2→⭐, 2AA&3→⯃, 1SS23→⬢');
                 
@@ -2730,7 +2743,7 @@
         // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map v2.5 - Dynamic Count Tooltips (real-time calculation)');
+        console.log('Dog Walking Map v2.6 - Tooltips now use exact legend counts (no recalculation)');
     </script>
 </body>
 </html>
