@@ -789,7 +789,7 @@
             return true;
         }
 
-        // Parse group from the Group column - supports multi-groups and business codes (DD, SUB, AA, F)
+        // Parse group from the Group column - supports multi-groups and business codes (DD, SUB, AA, F, Trial, XX)
         function parseGroup(groupValue) {
             if (!groupValue) return null;
             
@@ -797,7 +797,7 @@
             let strValue = originalValue;
             if (!strValue) return null;
             
-            // Remove business codes (DD, SUB, AA, F) but keep the group numbers
+            // Remove business codes (DD, SUB, Trial, XX, AA, F) but keep the group numbers
             // Business code meanings:
             // DD = Discount Day
             // SUB = Single Siblings  
@@ -805,9 +805,9 @@
             // F = (business code)
             // 
             // Supported patterns:
-            // Single groups: 1, 2, 3, 1DD1, 2F2, 3SUB3, 1AA1
-            // Two groups: 1&2, 2&3 (with codes: 1DD&2, 2SUB&3)
-            // All three groups: 123, 1DD23, 1SUB23, 1AA23, 2DD23, 3DD23
+            // Single groups: 1, 2, 3, 1DD1, 2F2, 3SUB3, 1AA1, 1XX1, 1Trial1
+            // Two groups: 1&2, 2&3 (with codes: 1DD&2, 2SUB&3, 1XX&2)
+            // All three groups: 123, 1DD23, 1SUB23, 1AA23, 2DD23, 3DD23, 1Trial23, 1XX23
             // Note: Groups 1&3 together always means all three (123)
             // 
             // Examples: 3DD3 -> 3, 2F2 -> 2, 1DD&2 -> 12, 1DD23 -> 123
@@ -817,19 +817,19 @@
                 // Remove business codes from each part
                 const parts = strValue.split('&').map(part => {
                     // Remove DD, SUB, AA, F from each part
-                    return part.replace(/DD|SUB|AA|F|XX/g, '').trim();
+                    return part.replace(/DD|SUB|AA|Trial|F|XX/g, '').trim();
                 });
                 strValue = parts.join('&');
             } else {
                 // Remove business codes more carefully - only when they appear between numbers
                 // This prevents removing F from names like "Fitz"
-                strValue = strValue.replace(/(\d)(DD|SUB|AA|F|XX)(\d)/g, '$1$3');
+                strValue = strValue.replace(/(\d)(DD|SUB|Trial|AA|F|XX)(\d)/g, '$1$3');
                 // Also handle cases where business code is at the end like "1DD"
-                strValue = strValue.replace(/(\d)(DD|SUB|AA|F|XX)$/g, '$1');
+                strValue = strValue.replace(/(\d)(DD|Trial|SUB|AA|F|XX)$/g, '$1');
             }
             
             // Debug logging for business codes (only log if different from original)
-            if (strValue !== originalValue && originalValue.match(/DD|SUB|AA|F/)) {
+            if (strValue !== originalValue && originalValue.match(/DD|Trial|SUB|AA|F/)) {
                 console.log(`Business code parsed: "${originalValue}" -> "${strValue}"`);
             }
             
@@ -2137,7 +2137,7 @@
                         <div style="margin-bottom: 8px;">
                             <input type="text" id="editGroup" value="${escapeHtml(groupText)}" 
                                    placeholder="1, 2, 3, 1&2, 1DD1, 2SUB2, etc."
-                                   title="Supports business codes: DD, SUB, AA, F (e.g., 1DD1, 2F2, 1SUB&2)"
+                                   title="Supports business codes: DD, SUB, Trial, AA, F, Trial, XX (e.g., 1DD1, 2F2, 1SUB&2)"
                                    style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
                                    autocomplete="off">
                         </div>
@@ -2710,7 +2710,7 @@
                 console.log('Application initialized successfully');
                 console.log('Google Sheets Write-back Enabled - Driver and Group Editing');
                 console.log('Tooltips now display exact legend counts - perfectly synced');
-                console.log('Business codes supported: DD (Discount Day), SUB (Single Siblings), AA, F');
+                console.log('Business codes supported: DD (Discount Day), SUB (Single Siblings), AA, Trial, XX, F');
                 console.log('Example patterns: 1DD1→⭕, 2F2→▲, 3SUB3→■, 1DD&2→⭐, 2AA&3→⯃, 1SUB23→⬢');
                 
             } catch (error) {
