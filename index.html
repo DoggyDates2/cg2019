@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Map v2.7 - With Autocomplete</title>
+    <title>🐕 Dog Walking Map v2.7 - True Autocomplete</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -605,21 +605,32 @@
             font-size: 11px;
         }
 
-        /* Autocomplete dropdown styling */
-        input[list]::-webkit-calendar-picker-indicator {
-            display: none !important;
+        /* True Autocomplete styling */
+        .autocomplete-container {
+            position: relative;
+            width: 100%;
         }
-
-        input[list]:focus::-webkit-list-button {
-            display: none;
+        
+        .autocomplete-hint {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 6px 8px;
+            border: 1px solid transparent;
+            border-radius: 4px;
+            font-size: 13px;
+            color: #999;
+            pointer-events: none;
+            background: transparent;
+            z-index: 1;
         }
-
-        /* Make autocomplete dropdown more visible */
-        input[list] {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 8px center;
-            padding-right: 25px !important;
+        
+        .autocomplete-input {
+            position: relative;
+            background: transparent;
+            z-index: 2;
         }
     </style>
 </head>
@@ -647,7 +658,7 @@
         </div>
         
         <div class="version-indicator">
-            v2.7 - With Autocomplete
+            v2.7 - True Autocomplete
         </div>
     </div>
 
@@ -1068,7 +1079,7 @@
             showNotification(`Color updated for ${categoryName}`, 'success', 2000);
         }
 
-        // ==================== AUTOCOMPLETE FUNCTIONS ====================
+        // ==================== TRUE AUTOCOMPLETE FUNCTIONS ====================
         function getUniqueDriverNames() {
             const drivers = new Set();
             
@@ -1093,26 +1104,73 @@
             return Array.from(drivers).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
         }
 
-        function createDriverDatalist() {
-            const existingDatalist = document.getElementById('driverNamesList');
-            if (existingDatalist) {
-                existingDatalist.remove();
-            }
+        // Global variable to store driver names for autocomplete
+        let driverNamesList = [];
+
+        function updateDriverNamesList() {
+            driverNamesList = getUniqueDriverNames();
+            console.log(`Updated driver list with ${driverNamesList.length} names`);
+        }
+
+        function setupAutocomplete(inputElement, hintElement) {
+            if (!inputElement) return;
             
-            const datalist = document.createElement('datalist');
-            datalist.id = 'driverNamesList';
+            let currentSuggestion = '';
             
-            const driverNames = getUniqueDriverNames();
-            driverNames.forEach(name => {
-                const option = document.createElement('option');
-                option.value = name;
-                datalist.appendChild(option);
+            inputElement.addEventListener('input', function(e) {
+                const value = this.value;
+                
+                if (!value || value.length < 1) {
+                    if (hintElement) hintElement.value = '';
+                    currentSuggestion = '';
+                    return;
+                }
+                
+                // Find first matching driver name (case-insensitive)
+                const valueLower = value.toLowerCase();
+                const match = driverNamesList.find(name => 
+                    name.toLowerCase().startsWith(valueLower) && 
+                    name.toLowerCase() !== valueLower
+                );
+                
+                if (match) {
+                    currentSuggestion = match;
+                    if (hintElement) {
+                        // Show the full suggestion with the typed part + the completion
+                        hintElement.value = value + match.substring(value.length);
+                    }
+                } else {
+                    currentSuggestion = '';
+                    if (hintElement) hintElement.value = '';
+                }
             });
             
-            document.body.appendChild(datalist);
+            // Handle Tab key to accept suggestion
+            inputElement.addEventListener('keydown', function(e) {
+                if (e.key === 'Tab' && currentSuggestion) {
+                    e.preventDefault();
+                    this.value = currentSuggestion;
+                    if (hintElement) hintElement.value = '';
+                    currentSuggestion = '';
+                    
+                    // Trigger input event to update any listeners
+                    this.dispatchEvent(new Event('input', { bubbles: true }));
+                } else if (e.key === 'Enter') {
+                    if (hintElement) hintElement.value = '';
+                    currentSuggestion = '';
+                } else if (e.key === 'Escape') {
+                    if (hintElement) hintElement.value = '';
+                    currentSuggestion = '';
+                }
+            });
             
-            console.log(`Created autocomplete list with ${driverNames.length} driver names`);
-            return driverNames.length;
+            // Clear hint when focus is lost
+            inputElement.addEventListener('blur', function() {
+                setTimeout(() => {
+                    if (hintElement) hintElement.value = '';
+                    currentSuggestion = '';
+                }, 100);
+            });
         }
 
         // ==================== MARKER CREATION ====================
@@ -1420,7 +1478,7 @@
                 showNotification(message, 'success');
                 
                 assignDriverColors();
-                createDriverDatalist();  // Create autocomplete list
+                updateDriverNamesList();  // Update autocomplete list
                 updateMap();
                 
             } catch (error) {
@@ -1920,7 +1978,7 @@
             panel.style.display = 'block';
             
             try {
-                createDriverDatalist();
+                updateDriverNamesList();
                 
                 const selectedRows = [];
                 for (const dogId of state.selectedMarkers) {
@@ -1950,12 +2008,20 @@
                             ${moreText}
                         </div>
                         <div class="bulk-edit-controls">
-                            <input type="text" 
-                                   id="bulkDriverInput" 
-                                   class="bulk-edit-input" 
-                                   placeholder="New driver name"
-                                   list="driverNamesList"
-                                   autocomplete="off" />
+                            <div class="autocomplete-container" style="flex: 1; min-width: 150px;">
+                                <input type="text" 
+                                       id="bulkDriverHint" 
+                                       class="autocomplete-hint bulk-edit-input"
+                                       style="padding: 8px; border: 2px solid transparent; border-radius: 4px; font-size: 14px;"
+                                       readonly
+                                       tabindex="-1">
+                                <input type="text" 
+                                       id="bulkDriverInput" 
+                                       class="autocomplete-input bulk-edit-input" 
+                                       placeholder="New driver name"
+                                       style="padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px;"
+                                       autocomplete="off" />
+                            </div>
                             <button class="btn btn-primary" onclick="bulkUpdateSelected()" 
                                     id="bulkUpdateBtn">💾 Update All</button>
                             <button class="btn btn-secondary" onclick="clearSelection()">✖️ Cancel</button>
@@ -1965,7 +2031,11 @@
                 
                 setTimeout(() => {
                     const input = document.getElementById('bulkDriverInput');
-                    if (input) input.focus();
+                    const hint = document.getElementById('bulkDriverHint');
+                    if (input) {
+                        setupAutocomplete(input, hint);
+                        input.focus();
+                    }
                 }, 100);
                 
             } catch (error) {
@@ -2047,7 +2117,7 @@
             if (!detailsContent) return;
             
             try {
-                createDriverDatalist();
+                updateDriverNamesList();
                 
                 const actualIndex = row['_rowIndex'] ?? state.allData.indexOf(row);
                 const driverName = row['Driver'] || '';
@@ -2099,12 +2169,18 @@
                     
                     <div style="border-top: 1px solid #dee2e6; padding-top: 8px; margin-top: 8px;">
                         <label style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">Driver:</label>
-                        <div style="margin-bottom: 8px;">
+                        <div style="margin-bottom: 8px;" class="autocomplete-container">
+                            <input type="text" 
+                                   id="editDriverHint" 
+                                   class="autocomplete-hint"
+                                   style="width: 100%; padding: 6px 8px; border: 1px solid transparent; border-radius: 4px; font-size: 13px;"
+                                   readonly
+                                   tabindex="-1">
                             <input type="text" 
                                    id="editDriver" 
                                    value="${escapeHtml(driverName)}" 
                                    placeholder="Enter driver name"
-                                   list="driverNamesList"
+                                   class="autocomplete-input"
                                    style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
                                    autocomplete="off">
                         </div>
@@ -2135,9 +2211,12 @@
                 
                 setTimeout(() => {
                     const driverInput = document.getElementById('editDriver');
+                    const driverHint = document.getElementById('editDriverHint');
                     const groupInput = document.getElementById('editGroup');
                     
                     if (driverInput) {
+                        setupAutocomplete(driverInput, driverHint);
+                        
                         driverInput.focus();
                         driverInput.select();
                         
@@ -2637,8 +2716,8 @@
                 });
                 
                 console.log('Application initialized successfully');
-                console.log('v2.7 - Driver name autocomplete enabled');
-                console.log('Autocomplete works in both single edit and bulk edit modes');
+                console.log('v2.7 - True autocomplete enabled (type + TAB to complete)');
+                console.log('Ghost text shows suggestion, TAB accepts it');
                 
             } catch (error) {
                 console.error('Error during application initialization:', error);
@@ -2667,7 +2746,7 @@
 
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map v2.7 - Autocomplete Ready');
+        console.log('Dog Walking Map v2.7 - True Autocomplete Ready');
     </script>
 </body>
 </html>
