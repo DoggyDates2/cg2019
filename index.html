@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Map v2.6 - Synced Counts</title>
+    <title>🐕 Dog Walking Map v2.7 - With Autocomplete</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -552,14 +552,14 @@
             border: 1px solid #333 !important;
             color: white !important;
             font-weight: 600 !important;
-            font-size: 16px !important;  /* Increased from 12px */
-            padding: 8px 12px !important;  /* Increased padding for bigger text */
+            font-size: 16px !important;
+            padding: 8px 12px !important;
             border-radius: 4px !important;
             box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important;
-            white-space: normal !important;  /* Changed from nowrap to allow wrapping */
-            max-width: 250px !important;  /* Set max width for text wrapping */
-            text-align: center !important;  /* Center align the text */
-            line-height: 1.4 !important;  /* Better line spacing */
+            white-space: normal !important;
+            max-width: 250px !important;
+            text-align: center !important;
+            line-height: 1.4 !important;
         }
         
         .leaflet-tooltip-top:before {
@@ -604,6 +604,23 @@
             color: #666;
             font-size: 11px;
         }
+
+        /* Autocomplete dropdown styling */
+        input[list]::-webkit-calendar-picker-indicator {
+            display: none !important;
+        }
+
+        input[list]:focus::-webkit-list-button {
+            display: none;
+        }
+
+        /* Make autocomplete dropdown more visible */
+        input[list] {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            padding-right: 25px !important;
+        }
     </style>
 </head>
 <body>
@@ -630,7 +647,7 @@
         </div>
         
         <div class="version-indicator">
-            v2.6 - Synced Legend/Tooltip Counts
+            v2.7 - With Autocomplete
         </div>
     </div>
 
@@ -728,7 +745,7 @@
             pendingSaves: new Map(),
             saveQueue: [],
             isSaving: false,
-            driverCounts: {}  // Store driver counts here for tooltip use
+            driverCounts: {}
         };
 
         // ==================== UTILITY FUNCTIONS ====================
@@ -789,7 +806,7 @@
             return true;
         }
 
-        // Parse group from the Group column - supports multi-groups and business codes (DD, SUB, AA, F, Trial, XX)
+        // Parse group from the Group column
         function parseGroup(groupValue) {
             if (!groupValue) return null;
             
@@ -797,62 +814,35 @@
             let strValue = originalValue;
             if (!strValue) return null;
             
-            // Remove business codes (DD, SUB, Trial, XX, AA, F) but keep the group numbers
-            // Business code meanings:
-            // DD = Discount Day
-            // SUB = Single Siblings  
-            // AA = (business code)
-            // F = (business code)
-            // 
-            // Supported patterns:
-            // Single groups: 1, 2, 3, 1DD1, 2F2, 3SUB3, 1AA1, 1XX1, 1Trial1
-            // Two groups: 1&2, 2&3 (with codes: 1DD&2, 2SUB&3, 1XX&2)
-            // All three groups: 123, 1DD23, 1SUB23, 1AA23, 2DD23, 3DD23, 1Trial23, 1XX23
-            // Note: Groups 1&3 together always means all three (123)
-            // 
-            // Examples: 3DD3 -> 3, 2F2 -> 2, 1DD&2 -> 12, 1DD23 -> 123
-            
-            // Handle patterns with & first (like 1DD&2, 2SUB&3)
+            // Remove business codes
             if (strValue.includes('&')) {
-                // Remove business codes from each part
                 const parts = strValue.split('&').map(part => {
-                    // Remove DD, SUB, AA, F from each part
                     return part.replace(/DD|SUB|AA|Trial|F|XX/g, '').trim();
                 });
                 strValue = parts.join('&');
             } else {
-                // Remove business codes more carefully - only when they appear between numbers
-                // This prevents removing F from names like "Fitz"
                 strValue = strValue.replace(/(\d)(DD|SUB|Trial|AA|F|XX)(\d)/g, '$1$3');
-                // Also handle cases where business code is at the end like "1DD"
                 strValue = strValue.replace(/(\d)(DD|Trial|SUB|AA|F|XX)$/g, '$1');
             }
             
-            // Debug logging for business codes (only log if different from original)
             if (strValue !== originalValue && originalValue.match(/DD|Trial|SUB|AA|F/)) {
                 console.log(`Business code parsed: "${originalValue}" -> "${strValue}"`);
             }
             
-            // Now parse the cleaned string
-            
-            // Handle patterns like "33" -> "3", "22" -> "2", "11" -> "1"
             if (strValue.match(/^([123])\1$/)) {
                 return parseInt(strValue[0], 10);
             }
             
-            // Handle multi-group combinations with & (only 1&2 or 2&3 are valid)
             if (strValue.includes('&')) {
                 const groups = strValue.split('&')
                     .map(g => g.trim())
                     .filter(g => g.match(/^[123]$/))
                     .sort();
                 if (groups.length === 2) {
-                    // Only valid two-group combinations are 1&2 or 2&3
                     const joined = groups.join('');
                     if (joined === '12' || joined === '23') {
                         return joined;
                     }
-                    // If it's 1&3, treat as all three groups
                     if (joined === '13') {
                         return '123';
                     }
@@ -861,18 +851,14 @@
                 }
             }
             
-            // Handle combined groups without separators like "12", "23", "123", "13"
             if (strValue.match(/^[123]{2,3}$/)) {
-                // Remove duplicates and sort
                 const uniqueGroups = [...new Set(strValue.split(''))].sort().join('');
-                // If it's "13", treat as all three groups (123)
                 if (uniqueGroups === '13') {
                     return '123';
                 }
                 return uniqueGroups;
             }
             
-            // Handle single groups
             if (strValue.match(/^[123]$/)) {
                 return parseInt(strValue, 10);
             }
@@ -880,7 +866,6 @@
             return null;
         }
 
-        // Get unique dog ID
         function getDogId(row) {
             if (!row) return null;
             
@@ -894,7 +879,6 @@
                 id = row['Dog ID'].trim();
             } else if (row['Dog Name'] && row['Dog Name'].trim()) {
                 id = row['Dog Name'].trim();
-                // Use the stored _rowIndex instead of indexOf
                 const index = row['_rowIndex'] ?? state.allData.indexOf(row);
                 if (index >= 0) {
                     id = `${id}_${index}`;
@@ -908,16 +892,11 @@
             return id;
         }
 
-        // Get row's sheet index (accounting for header row)
         function getSheetRowIndex(row) {
-            // Use the stored _rowIndex if available, otherwise try to find it
             if (row && typeof row['_rowIndex'] === 'number') {
-                // _rowIndex is 0-based from the data rows
-                // Add 2: +1 for header row, +1 for 1-based indexing
                 return row['_rowIndex'] + 2;
             }
             
-            // Fallback: try to find in allData
             const index = state.allData.indexOf(row);
             if (index !== -1) {
                 return index + 2;
@@ -927,7 +906,6 @@
             return -1;
         }
 
-        // Point in polygon algorithm
         function isPointInPolygon(point, polygon) {
             if (!polygon || polygon.length < 3) return false;
             if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return false;
@@ -958,15 +936,13 @@
             try {
                 const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
                     method: 'POST',
-                    mode: 'no-cors', // Required for Apps Script
+                    mode: 'no-cors',
                     headers: {
-                        'Content-Type': 'text/plain', // Apps Script requires this
+                        'Content-Type': 'text/plain',
                     },
                     body: JSON.stringify(payload)
                 });
                 
-                // Note: With no-cors mode, we can't read the response
-                // But the request will still go through
                 return { success: true };
                 
             } catch (error) {
@@ -986,7 +962,6 @@
                     statusEl.innerHTML = '<span class="spinner"></span><span>Testing connection...</span>';
                 }
                 
-                // Test with a GET request first
                 const response = await fetch(CONFIG.APPS_SCRIPT_URL);
                 const text = await response.text();
                 
@@ -1039,7 +1014,6 @@
             
             state.allData.forEach(row => {
                 if (row) {
-                    // Try Driver first, fall back to Combined if Driver is empty
                     const driverName = (row['Driver'] && row['Driver'].trim()) ? 
                                      row['Driver'].trim() : 
                                      (row['Combined'] ? row['Combined'].trim() : '');
@@ -1053,7 +1027,6 @@
             const newColorMap = {};
             
             sortedDrivers.forEach((driver, index) => {
-                // Keep existing custom colors
                 if (state.customColors[driver]) {
                     newColorMap[driver] = state.customColors[driver];
                 } else if (state.driverColorMap[driver]) {
@@ -1061,7 +1034,6 @@
                 } else if (index < ALL_COLORS.length) {
                     newColorMap[driver] = ALL_COLORS[index];
                 } else {
-                    // Generate a color for drivers beyond the palette
                     let hash = 0;
                     for (let i = 0; i < driver.length; i++) {
                         hash = ((hash << 5) - hash) + driver.charCodeAt(i);
@@ -1080,7 +1052,6 @@
             if (!name || name.trim() === '') return '#999999';
             const trimmedName = name.trim();
             
-            // Special case: Black for unassigned drivers
             if (trimmedName.toLowerCase().includes('unassigned')) {
                 return '#000000';
             }
@@ -1097,9 +1068,55 @@
             showNotification(`Color updated for ${categoryName}`, 'success', 2000);
         }
 
-        // ==================== MARKER CREATION WITH PROPER SHAPES ====================
+        // ==================== AUTOCOMPLETE FUNCTIONS ====================
+        function getUniqueDriverNames() {
+            const drivers = new Set();
+            
+            state.allData.forEach(row => {
+                if (row) {
+                    const driverName = row['Driver']?.trim();
+                    const combinedName = row['Combined']?.trim();
+                    
+                    if (driverName && driverName !== '') {
+                        drivers.add(driverName);
+                    }
+                    if (combinedName && combinedName !== '' && combinedName !== driverName) {
+                        drivers.add(combinedName);
+                    }
+                }
+            });
+            
+            drivers.delete('');
+            drivers.delete('unassigned');
+            drivers.delete('Unassigned');
+            
+            return Array.from(drivers).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        }
+
+        function createDriverDatalist() {
+            const existingDatalist = document.getElementById('driverNamesList');
+            if (existingDatalist) {
+                existingDatalist.remove();
+            }
+            
+            const datalist = document.createElement('datalist');
+            datalist.id = 'driverNamesList';
+            
+            const driverNames = getUniqueDriverNames();
+            driverNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                datalist.appendChild(option);
+            });
+            
+            document.body.appendChild(datalist);
+            
+            console.log(`Created autocomplete list with ${driverNames.length} driver names`);
+            return driverNames.length;
+        }
+
+        // ==================== MARKER CREATION ====================
         function createMarkerIcon(color, isSelected = false, markerType = 'circle', group = null, isInSelection = false, dogName = null, hasCallout = false) {
-            // Special handling for Park and Field - DIAMONDS
             if (dogName) {
                 const dogNameLower = dogName.toLowerCase();
                 if (dogNameLower === 'park' || dogNameLower === 'field') {
@@ -1107,7 +1124,7 @@
                     const strokeColor = isInSelection ? '#007bff' : (isSelected ? '#007bff' : '#666666');
                     const strokeWidth = isSelected ? 3 : (isInSelection ? 3 : 2);
                     const size = isInSelection ? 28 : 24;
-                    const fillColor = isPark ? '#FFFFFF' : '#000000';  // Park = white, Field = black
+                    const fillColor = isPark ? '#FFFFFF' : '#000000';
                     
                     return L.divIcon({
                         html: `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
@@ -1130,7 +1147,6 @@
             
             try {
                 if (group === 2) {
-                    // Triangle for Group 2
                     const svgSize = size + 3;
                     icon = L.divIcon({
                         html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
@@ -1142,7 +1158,6 @@
                         iconAnchor: [svgSize/2, svgSize/2]
                     });
                 } else if (group === 3) {
-                    // Square for Group 3
                     icon = L.divIcon({
                         html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
                         className: `custom-square-marker ${isInSelection ? 'marker-selected' : ''}`,
@@ -1150,7 +1165,6 @@
                         iconAnchor: [size/2, size/2]
                     });
                 } else if (group === '12') {
-                    // Star for Group 1&2
                     const svgSize = size + 4;
                     icon = L.divIcon({
                         html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
@@ -1162,7 +1176,6 @@
                         iconAnchor: [svgSize/2, svgSize/2]
                     });
                 } else if (group === '23') {
-                    // Trapezoid for Group 2&3
                     const svgSize = size + 4;
                     icon = L.divIcon({
                         html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
@@ -1174,7 +1187,6 @@
                         iconAnchor: [svgSize/2, svgSize/2]
                     });
                 } else if (group === '123') {
-                    // Hexagon for Group 1&2&3
                     const svgSize = size + 4;
                     const cx = svgSize/2;
                     const cy = svgSize/2;
@@ -1189,7 +1201,6 @@
                         iconAnchor: [svgSize/2, svgSize/2]
                     });
                 } else {
-                    // Circle for Group 1 (default)
                     icon = L.divIcon({
                         html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
                         className: `custom-marker ${isInSelection ? 'marker-selected' : ''}`,
@@ -1202,7 +1213,6 @@
                 
             } catch (error) {
                 console.error('Error creating marker icon:', error);
-                // Fallback to simple circle
                 return L.divIcon({
                     html: `<div style="width: 13px; height: 13px; background-color: #999999; border: 2px solid #000000; border-radius: 50%;"></div>`,
                     className: 'custom-marker-fallback',
@@ -1229,7 +1239,6 @@
                     attributionControl: true
                 });
                 
-                // Using Stamen Toner for high contrast streets
                 const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png';
                 
                 console.log('Loading map tiles: Stamen Toner (High contrast for clear streets)');
@@ -1244,14 +1253,12 @@
                 let fallbackLayer = null;
                 let tileLoadTimeout = null;
                 
-                // Check if tiles are loading after 5 seconds
                 tileLoadTimeout = setTimeout(() => {
                     const tiles = document.querySelectorAll('.leaflet-tile');
                     if (tiles.length === 0 && !fallbackLayer) {
                         console.warn('No tiles loaded - switching to fallback');
                         showNotification('Stamen server not responding, trying fallback...', 'info');
                         
-                        // Try CartoDB Positron as fallback
                         fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
                             attribution: '© OpenStreetMap contributors © CARTO',
                             maxZoom: 19
@@ -1263,13 +1270,11 @@
                 
                 tileLayer.on('tileerror', function(error) {
                     console.error('Tile load error:', error);
-                    // Clear the timeout if we're switching to fallback
                     if (tileLoadTimeout) {
                         clearTimeout(tileLoadTimeout);
                         tileLoadTimeout = null;
                     }
                     
-                    // Fallback to CartoDB if Stamen fails
                     if (!fallbackLayer) {
                         console.log('Switching to fallback map provider (CartoDB Positron)...');
                         fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
@@ -1283,7 +1288,6 @@
                 });
                 
                 tileLayer.on('tileload', function() {
-                    // Clear timeout on successful load
                     if (tileLoadTimeout) {
                         clearTimeout(tileLoadTimeout);
                         tileLoadTimeout = null;
@@ -1292,7 +1296,6 @@
                 
                 tileLayer.addTo(state.map);
                 
-                // Check if tiles are loading after a short delay
                 setTimeout(() => {
                     const tiles = document.querySelectorAll('.leaflet-tile');
                     const loadedTiles = document.querySelectorAll('.leaflet-tile-loaded');
@@ -1356,7 +1359,6 @@
                 
                 console.log('Headers from Google Sheet:', headers);
                 
-                // Validate required columns
                 const requiredColumns = ['Dog Name', 'Latitude', 'Longitude', 'Group'];
                 const missingColumns = requiredColumns.filter(col => !headers.includes(col));
                 
@@ -1364,7 +1366,6 @@
                     console.warn(`Missing columns: ${missingColumns.join(', ')}`);
                 }
                 
-                // Process data
                 const processedData = [];
                 let validRows = 0;
                 const invalidRows = [];
@@ -1391,7 +1392,7 @@
                         
                         obj['_lat'] = lat;
                         obj['_lng'] = lng;
-                        obj['_rowIndex'] = index;  // Store the original row index (0-based, excluding header)
+                        obj['_rowIndex'] = index;
                         
                         processedData.push(obj);
                         validRows++;
@@ -1419,6 +1420,7 @@
                 showNotification(message, 'success');
                 
                 assignDriverColors();
+                createDriverDatalist();  // Create autocomplete list
                 updateMap();
                 
             } catch (error) {
@@ -1438,15 +1440,12 @@
             try {
                 console.log('UpdateMap called - using legend counts for tooltips');
                 
-                // Update legend FIRST to calculate driver counts
                 updateLegend();
                 console.log('Driver counts after legend update:', state.driverCounts);
                 
-                // Clear existing markers
                 state.markers.forEach(m => {
                     if (m && m.marker) {
                         try {
-                            // Unbind tooltip first using dynamic method name
                             const getMethod = 'get' + 'Tooltip';
                             const unbindMethod = 'unbind' + 'Tooltip';
                             
@@ -1477,11 +1476,9 @@
                     return;
                 }
 
-                // Filter data
                 state.filteredData = state.allData.filter(row => {
                     if (!row) return false;
                     
-                    // Search filter
                     if (searchTerm) {
                         const searchFields = [
                             row['Dog Name'],
@@ -1497,29 +1494,24 @@
                         }
                     }
                     
-                    // Group filter (using parseGroup to handle business codes)
                     const group = parseGroup(row['Group']);
                     if (group !== null) {
                         if (typeof group === 'string' && group.length > 1) {
-                            // Multi-group: check if any active group is in the combination
                             const hasActiveGroup = group.split('').some(g => state.activeGroups.includes(parseInt(g)));
                             if (!hasActiveGroup) {
                                 return false;
                             }
                         } else if (typeof group === 'number') {
-                            // Single group
                             if (!state.activeGroups.includes(group)) {
                                 return false;
                             }
                         }
                     } else {
-                        // If no valid group, filter out when group filters are active
                         if (state.activeGroups.length < 3) {
                             return false;
                         }
                     }
                     
-                    // Driver filter
                     if (state.currentFilter !== null) {
                         const rowDriver = row['Driver'] || row['Combined'] || '';
                         if (rowDriver !== state.currentFilter) {
@@ -1530,7 +1522,6 @@
                     return true;
                 });
 
-                // Build color map for drivers
                 state.colorMap = {};
                 state.allData.forEach(row => {
                     if (row && (row['Driver'] || row['Combined'])) {
@@ -1541,7 +1532,6 @@
                     }
                 });
 
-                // Create markers
                 state.filteredData.forEach(row => {
                     if (!row) return;
                     
@@ -1551,7 +1541,6 @@
                         
                         if (!validateCoordinates(lat, lng)) return;
                         
-                        // Handle overlapping coordinates
                         const coordKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
                         const existingCount = state.coordinateLookup.get(coordKey) || 0;
                         state.coordinateLookup.set(coordKey, existingCount + 1);
@@ -1562,7 +1551,6 @@
                         const driver = row['Driver'] || row['Combined'] || '';
                         let color = state.colorMap[driver] || '#999999';
                         
-                        // Special case: Black for unassigned drivers
                         if (driver.toLowerCase().includes('unassigned')) {
                             color = '#000000';
                         }
@@ -1572,23 +1560,19 @@
                         const isInSelection = dogId && state.selectedMarkers.has(dogId);
                         const hasCallout = row['Callout'] && row['Callout'].trim();
                         
-                        // Format tooltip as "Driver:Group" then dog name on new line, using counts from legend
                         const driverDisplay = driver || 'No Driver';
-                        const groupDisplay = row['Group'] || '?';  // Use original Group value with business codes intact
+                        const groupDisplay = row['Group'] || '?';
                         const dogNameDisplay = row['Dog Name'] || 'Unknown';
                         const notesValue = row['Notes'] || '';
                         
-                        // Use the pre-calculated counts from the legend (stored in state.driverCounts)
                         let tooltipHtml = `<div style="text-align: center;"><strong>${escapeHtml(driverDisplay)}:${escapeHtml(groupDisplay)}</strong>`;
                         
-                        // Get counts from the stored legend data
                         if (driver && state.driverCounts && state.driverCounts[driver]) {
                             const counts = state.driverCounts[driver];
                             const total = counts[1] + counts[2] + counts[3];
                             if (total > 0) {
                                 tooltipHtml += `  <span style="color: #ff6b6b; font-weight: bold;">(${counts[1]}, ${counts[2]}, ${counts[3]})</span>`;
                             }
-                            // Debug: Log first few tooltips to verify counts
                             if (state.markers.length < 3) {
                                 console.log(`Tooltip for ${driver}: (${counts[1]}, ${counts[2]}, ${counts[3]})`);
                             }
@@ -1596,7 +1580,6 @@
                         
                         tooltipHtml += `<br/>${escapeHtml(dogNameDisplay)}`;
                         
-                        // Add notes if present
                         if (notesValue && notesValue.toString().trim() !== '') {
                             tooltipHtml += `<br/><span style="font-style: italic; color: white;">${escapeHtml(notesValue)}</span>`;
                         }
@@ -1608,11 +1591,9 @@
                             riseOnHover: true
                         });
 
-                        // Add marker to map first
                         marker.addTo(state.map);
                         
-                        // Bind tooltip using the correct Leaflet method: bindTooltip
-                        const tooltipMethod = 'bind' + 'Tooltip'; // Tooltip with capital T, two o's
+                        const tooltipMethod = 'bind' + 'Tooltip';
                         if (typeof marker[tooltipMethod] === 'function') {
                             marker[tooltipMethod](tooltipHtml, {
                                 permanent: false,
@@ -1626,7 +1607,6 @@
                             console.log('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(marker)).sort());
                         }
 
-                        // Store additional data for the marker
                         marker._rowData = row;
                         
                         const markerData = {marker, row, index: row['_rowIndex'] ?? state.allData.indexOf(row), group};
@@ -1670,9 +1650,6 @@
                     }
                 });
 
-                // Legend already updated at the beginning of updateMap()
-                
-                // Fit bounds if we have markers
                 if (state.markers.length > 0 && state.markers.length < 100) {
                     const group = L.featureGroup(state.markers.map(m => m.marker));
                     state.map.fitBounds(group.getBounds().pad(0.1));
@@ -1943,6 +1920,8 @@
             panel.style.display = 'block';
             
             try {
+                createDriverDatalist();
+                
                 const selectedRows = [];
                 for (const dogId of state.selectedMarkers) {
                     const markerData = state.markerLookup.get(dogId);
@@ -1971,8 +1950,11 @@
                             ${moreText}
                         </div>
                         <div class="bulk-edit-controls">
-                            <input type="text" id="bulkDriverInput" class="bulk-edit-input" 
+                            <input type="text" 
+                                   id="bulkDriverInput" 
+                                   class="bulk-edit-input" 
                                    placeholder="New driver name"
+                                   list="driverNamesList"
                                    autocomplete="off" />
                             <button class="btn btn-primary" onclick="bulkUpdateSelected()" 
                                     id="bulkUpdateBtn">💾 Update All</button>
@@ -2014,7 +1996,6 @@
             }
             
             try {
-                // Clear previous selection
                 if (state.selectedMarker && state.selectedMarker !== marker) {
                     const prevData = state.markers.find(m => m && m.marker === state.selectedMarker);
                     if (prevData) {
@@ -2038,7 +2019,6 @@
                 state.selectedMarker = marker;
                 state.selectedRow = row;
                 
-                // Update marker appearance
                 try {
                     const driver = row['Driver'] || row['Combined'] || '';
                     let color = state.colorMap[driver] || '#999999';
@@ -2054,7 +2034,6 @@
                     console.warn('Error updating marker icon:', iconError);
                 }
 
-                // Update details panel
                 updateDetailsPanel(row, index);
                 
             } catch (error) {
@@ -2068,12 +2047,13 @@
             if (!detailsContent) return;
             
             try {
-                // Use the stored _rowIndex or calculate it
+                createDriverDatalist();
+                
                 const actualIndex = row['_rowIndex'] ?? state.allData.indexOf(row);
                 const driverName = row['Driver'] || '';
                 const dogName = row['Dog Name'] || 'Unknown';
-                const group = parseGroup(row['Group']);  // Parsed for shape display
-                const groupText = row['Group'] || '';  // Original value with business codes
+                const group = parseGroup(row['Group']);
+                const groupText = row['Group'] || '';
                 const address = row['Address'] || '';
                 const capacity = row['Capacity'] || '';
                 const callout = row['Callout'] || '';
@@ -2081,38 +2061,32 @@
                 
                 let infoHtml = '';
                 
-                // Build the info section
                 infoHtml += `<div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px; text-align: center; padding: 6px 8px; background: #f8f9fa; border-radius: 4px;">
                     ${escapeHtml(dogName)}
                 </div>`;
                 
-                // Add group number - IMPORTANT: Keep this visual indicator with business codes visible
                 infoHtml += `<div style="text-align: center; margin-bottom: 6px; font-size: 16px; font-weight: bold; color: #333;">
                     Group ${escapeHtml(groupText || '?')}
                 </div>`;
                 
-                // Add Dog ID if present
                 if (dogId) {
                     infoHtml += `<div style="margin-bottom: 6px; font-size: 11px; color: #999; text-align: center;">
                         ID: ${escapeHtml(dogId)}
                     </div>`;
                 }
                 
-                // Add address if present
                 if (address) {
                     infoHtml += `<div style="margin-bottom: 6px; font-size: 12px; color: #666;">
                         ${escapeHtml(address)}
                     </div>`;
                 }
                 
-                // Add capacity if present
                 if (capacity) {
                     infoHtml += `<div style="margin-bottom: 6px; font-size: 12px; color: #666;">
                         <strong>Capacity:</strong> ${escapeHtml(capacity)}
                     </div>`;
                 }
                 
-                // Add callout if present
                 if (callout) {
                     infoHtml += `<div style="background: #fff3cd; padding: 6px; border-radius: 4px; margin-bottom: 6px;">
                         <strong style="color: #856404;">CALLOUT:</strong> 
@@ -2120,15 +2094,17 @@
                     </div>`;
                 }
                 
-                // Add driver and group edit section - using actualIndex properly
                 const detailsHtml = `
                     ${infoHtml}
                     
                     <div style="border-top: 1px solid #dee2e6; padding-top: 8px; margin-top: 8px;">
                         <label style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">Driver:</label>
                         <div style="margin-bottom: 8px;">
-                            <input type="text" id="editDriver" value="${escapeHtml(driverName)}" 
+                            <input type="text" 
+                                   id="editDriver" 
+                                   value="${escapeHtml(driverName)}" 
                                    placeholder="Enter driver name"
+                                   list="driverNamesList"
                                    style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
                                    autocomplete="off">
                         </div>
@@ -2204,7 +2180,6 @@
                 const sortedEntries = Object.entries(state.colorMap).sort(([a], [b]) => a.localeCompare(b));
                 const legendItems = [];
                 
-                // Clear and recalculate driver counts
                 state.driverCounts = {};
                 
                 sortedEntries.forEach(([key, color]) => {
@@ -2213,9 +2188,7 @@
                     const isActive = state.currentFilter === key;
                     let displayText = escapeHtml(key);
                     
-                    // Add group counts for drivers
                     if (state.allData && state.allData.length > 0) {
-                        // Count dogs by group for this driver
                         const groupCounts = { 1: 0, 2: 0, 3: 0 };
                         
                         state.allData.forEach(row => {
@@ -2223,15 +2196,11 @@
                             const rowDriver = row['Driver'] || row['Combined'] || '';
                             if (rowDriver !== key) return;
                             
-                            // Get the number of dogs (default to 1 if not specified)
                             const dogCount = parseInt(row['Number of Dogs'] || '1') || 1;
-                            
-                            // Parse the group assignment (handles business codes)
                             const group = parseGroup(row['Group']);
                             
                             if (group !== null) {
                                 if (typeof group === 'string' && group.length > 1) {
-                                    // Multi-group: split and add to each
                                     group.split('').forEach(g => {
                                         const groupNum = parseInt(g);
                                         if (groupNum >= 1 && groupNum <= 3) {
@@ -2239,16 +2208,13 @@
                                         }
                                     });
                                 } else if (typeof group === 'number' && group >= 1 && group <= 3) {
-                                    // Single group
                                     groupCounts[group] += dogCount;
                                 }
                             }
                         });
                         
-                        // Store the counts for tooltip use
                         state.driverCounts[key] = groupCounts;
                         
-                        // Only show counts if there are any dogs
                         const total = groupCounts[1] + groupCounts[2] + groupCounts[3];
                         if (total > 0) {
                             displayText += ` (${groupCounts[1]}, ${groupCounts[2]}, ${groupCounts[3]})`;
@@ -2277,7 +2243,6 @@
                 
                 legendContent.innerHTML = legendItems.join('') || '<div class="no-selection">No drivers found</div>';
                 
-                // Add color picker handlers
                 const pickers = legendContent.querySelectorAll('.color-picker');
                 pickers.forEach(picker => {
                     picker.addEventListener('change', function(e) {
@@ -2365,7 +2330,7 @@
             }
         }
 
-        // ==================== SAVE FUNCTIONS WITH GOOGLE SHEETS INTEGRATION ====================
+        // ==================== SAVE FUNCTIONS ====================
         async function saveMarkerData() {
             const editDriverInput = document.getElementById('editDriver');
             const editGroupInput = document.getElementById('editGroup');
@@ -2385,7 +2350,6 @@
             }
 
             try {
-                // Disable save button
                 if (saveBtn) {
                     saveBtn.disabled = true;
                     saveBtn.innerHTML = '⏳ Saving...';
@@ -2394,7 +2358,6 @@
                 const oldDriver = state.selectedRow['Driver'] || '';
                 const oldGroup = state.selectedRow['Group'] || '';
                 
-                // Get the correct sheet row index
                 const sheetRowIndex = getSheetRowIndex(state.selectedRow);
                 
                 if (sheetRowIndex === -1) {
@@ -2403,21 +2366,15 @@
                 
                 console.log('Saving to sheet row:', sheetRowIndex, 'for dog:', state.selectedRow['Dog Name']);
                 
-                // Update local data immediately for responsive UI
                 state.selectedRow['Driver'] = newDriverName;
                 state.selectedRow['Group'] = newGroupValue;
                 
-                // Clear marker lookups to force complete refresh
                 state.markerLookup.clear();
                 state.coordinateLookup.clear();
                 
-                // Update UI immediately
                 assignDriverColors();
-                
-                // Force complete map refresh to update tooltips
                 updateMap();
                 
-                // Re-select the marker after refresh if it still exists
                 setTimeout(() => {
                     const dogId = getDogId(state.selectedRow);
                     const markerData = state.markerLookup.get(dogId);
@@ -2426,13 +2383,11 @@
                     }
                 }, 100);
                 
-                // Show immediate feedback
                 showNotification('Saving to Google Sheets...', 'info', 1000);
                 
-                // Send to Google Sheets with both fields
                 const payload = {
                     action: 'updateRow',
-                    rowIndex: sheetRowIndex,  // Already includes +2 adjustment
+                    rowIndex: sheetRowIndex,
                     updatedData: {
                         'Driver': newDriverName,
                         'Group': newGroupValue
@@ -2443,13 +2398,11 @@
                 
                 showNotification('✅ Data updated in Google Sheets!', 'success', 2000);
                 
-                // Re-enable button
                 if (saveBtn) {
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = '💾 Save';
                 }
                 
-                // Reload data to ensure tooltips refresh with new counts
                 setTimeout(() => {
                     console.log('Reloading data to refresh tooltips...');
                     loadData();
@@ -2459,13 +2412,11 @@
                 console.error('Error in saveMarkerData:', error);
                 showNotification(`Error saving: ${error.message}`, 'error');
                 
-                // Restore button state
                 if (saveBtn) {
                     saveBtn.disabled = false;
                     saveBtn.innerHTML = '💾 Save';
                 }
                 
-                // Revert local changes on error
                 if (state.selectedRow && typeof oldDriver !== 'undefined') {
                     state.selectedRow['Driver'] = oldDriver;
                     state.selectedRow['Group'] = oldGroup;
@@ -2475,7 +2426,6 @@
             }
         }
 
-        // Keep the old function name for backward compatibility, redirect to new one
         async function saveDriverName() {
             return saveMarkerData();
         }
@@ -2530,37 +2480,31 @@
                     return;
                 }
                 
-                // Disable button
                 if (bulkBtn) {
                     bulkBtn.disabled = true;
                     bulkBtn.innerHTML = '⏳ Updating...';
                 }
                 
-                // Store old values for rollback
                 const oldValues = validSelectedRows.map(row => ({
                     row: row,
                     oldDriver: row['Driver'] || ''
                 }));
                 
-                // Update local data immediately for responsive UI
                 validSelectedRows.forEach(row => {
                     row['Driver'] = newDriverName;
                 });
                 
-                // Clear marker lookups to force complete refresh
                 state.markerLookup.clear();
                 state.coordinateLookup.clear();
                 
-                // Update UI immediately
                 assignDriverColors();
                 updateMap();
                 clearSelection();
                 
                 showNotification(`Saving ${validSelectedRows.length} updates to Google Sheets...`, 'info');
                 
-                // Prepare bulk update payload
                 const updates = sheetRowIndices.map(sheetRowIndex => ({
-                    rowIndex: sheetRowIndex,  // Already includes +2 adjustment
+                    rowIndex: sheetRowIndex,
                     updatedData: {
                         'Driver': newDriverName
                     }
@@ -2577,13 +2521,11 @@
                 
                 showNotification(`✅ Successfully updated ${validSelectedRows.length} dogs in Google Sheets!`, 'success', 3000);
                 
-                // Re-enable button
                 if (bulkBtn) {
                     bulkBtn.disabled = false;
                     bulkBtn.innerHTML = '💾 Update All';
                 }
                 
-                // Reload data to ensure tooltips refresh with new counts
                 setTimeout(() => {
                     console.log('Reloading data to refresh tooltips after bulk update...');
                     loadData();
@@ -2593,13 +2535,11 @@
                 console.error('Bulk update error:', error);
                 showNotification(`Error during bulk update: ${error.message}`, 'error');
                 
-                // Re-enable button
                 if (bulkBtn) {
                     bulkBtn.disabled = false;
                     bulkBtn.innerHTML = '💾 Update All';
                 }
                 
-                // Rollback local changes on error
                 if (oldValues) {
                     oldValues.forEach(({row, oldDriver}) => {
                         row['Driver'] = oldDriver;
@@ -2627,7 +2567,6 @@
             try {
                 console.log('DOM loaded, initializing application...');
                 
-                // Check browser compatibility
                 const requiredFeatures = [
                     'Promise' in window,
                     'fetch' in window,
@@ -2650,28 +2589,21 @@
                     return;
                 }
                 
-                // Initialize map
                 initMap();
-                
-                // Load initial data
                 loadData();
                 
-                // Test Apps Script connection after a short delay
                 setTimeout(() => testAppsScriptConnection(), 2000);
                 
-                // Setup event listeners
                 const searchInput = document.getElementById('searchInput');
                 if (searchInput) {
                     searchInput.addEventListener('input', debouncedUpdateMap);
                     searchInput.addEventListener('search', debouncedUpdateMap);
                 }
                 
-                // Group filter buttons
                 document.getElementById('group1Btn')?.addEventListener('click', () => toggleGroupFilter(1));
                 document.getElementById('group2Btn')?.addEventListener('click', () => toggleGroupFilter(2));
                 document.getElementById('group3Btn')?.addEventListener('click', () => toggleGroupFilter(3));
                 
-                // Other buttons
                 document.getElementById('selectionModeBtn')?.addEventListener('click', toggleSelectionMode);
                 document.getElementById('clearSelectionBtn')?.addEventListener('click', clearSelection);
                 document.getElementById('resetColorsBtn')?.addEventListener('click', resetColors);
@@ -2679,9 +2611,7 @@
                 document.getElementById('panelToggle')?.addEventListener('click', togglePanel);
                 document.getElementById('testConnectionBtn')?.addEventListener('click', testAppsScriptConnection);
                 
-                // Add keyboard shortcuts
                 document.addEventListener('keydown', function(e) {
-                    // Escape key
                     if (e.key === 'Escape') {
                         if (state.selectionMode) {
                             toggleSelectionMode();
@@ -2696,7 +2626,6 @@
                         }
                     }
                     
-                    // Ctrl/Cmd + F for search focus
                     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
                         e.preventDefault();
                         const searchInput = document.getElementById('searchInput');
@@ -2708,10 +2637,8 @@
                 });
                 
                 console.log('Application initialized successfully');
-                console.log('Google Sheets Write-back Enabled - Driver and Group Editing');
-                console.log('Tooltips now display exact legend counts - perfectly synced');
-                console.log('Business codes supported: DD (Discount Day), SUB (Single Siblings), AA, Trial, XX, F');
-                console.log('Example patterns: 1DD1→⭕, 2F2→▲, 3SUB3→■, 1DD&2→⭐, 2AA&3→⯃, 1SUB23→⬢');
+                console.log('v2.7 - Driver name autocomplete enabled');
+                console.log('Autocomplete works in both single edit and bulk edit modes');
                 
             } catch (error) {
                 console.error('Error during application initialization:', error);
@@ -2719,7 +2646,7 @@
             }
         }
 
-        // Global functions for onclick handlers
+        // Global functions
         window.filterByCategory = filterByCategory;
         window.clearSelection = clearSelection;
         window.saveDriverName = saveDriverName;
@@ -2728,22 +2655,19 @@
         window.bulkUpdateSelected = bulkUpdateSelected;
         window.testAppsScriptConnection = testAppsScriptConnection;
 
-        // Global error handler
         window.addEventListener('error', function(event) {
             console.error('Global error:', event.error);
             console.error('Stack:', event.error?.stack);
             
-            // If error is related to group parsing, provide helpful info
             if (event.error?.message?.includes('group') || event.error?.message?.includes('Group')) {
                 console.log('Group parsing tip: Supported business codes are DD, SUB, AA, F');
                 console.log('Valid patterns: 1, 2, 3, 1DD1, 2F2, 1&2, 1DD&2, 123, 1SUB23, etc.');
             }
         });
 
-        // Initialize when DOM is ready
         document.addEventListener('DOMContentLoaded', initializeApp);
 
-        console.log('Dog Walking Map v2.6 - Tooltips now use exact legend counts (no recalculation)');
+        console.log('Dog Walking Map v2.7 - Autocomplete Ready');
     </script>
 </body>
 </html>
