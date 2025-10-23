@@ -769,6 +769,28 @@ function debounce(func, wait) {
     };
 }
 
+// localStorage persistence functions for custom colors
+function saveCustomColorsToStorage() {
+    try {
+        localStorage.setItem('driverCustomColors', JSON.stringify(state.customColors));
+        console.log('Saved custom colors to localStorage');
+    } catch (error) {
+        console.error('Error saving to localStorage:', error);
+    }
+}
+
+function loadCustomColorsFromStorage() {
+    try {
+        const saved = localStorage.getItem('driverCustomColors');
+        if (saved) {
+            state.customColors = JSON.parse(saved);
+            console.log('Loaded custom colors from localStorage:', state.customColors);
+        }
+    } catch (error) {
+        console.error('Error loading from localStorage:', error);
+    }
+}
+
 function escapeHtml(text) {
     if (text == null) return '';
     const div = document.createElement('div');
@@ -1052,6 +1074,7 @@ function getDriverColor(name) {
 function changeCustomColor(categoryName, newColor) {
     console.log('Changing color for:', categoryName, 'to:', newColor);
     state.customColors[categoryName] = newColor;
+    saveCustomColorsToStorage();  // Save to localStorage
     assignDriverColors();
     updateMap();
     showNotification(`Color updated for ${categoryName}`, 'success', 2000);
@@ -2370,6 +2393,7 @@ function resetColors() {
     
     console.log('Resetting all custom colors');
     state.customColors = {};
+    localStorage.removeItem('driverCustomColors');  // Clear localStorage
     assignDriverColors();
     updateMap();
     showNotification('All custom colors reset', 'success');
@@ -2622,6 +2646,9 @@ const debouncedUpdateMap = debounce(updateMap, CONFIG.DEBOUNCE_DELAY);
 function initializeApp() {
     try {
         console.log('DOM loaded, initializing application...');
+        
+        // Load saved custom colors from localStorage
+        loadCustomColorsFromStorage();
         
         const requiredFeatures = [
             'Promise' in window,
