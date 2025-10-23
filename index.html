@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Map v2.7 - With Color Persistence</title>
+    <title>🐕 Dog Walking Map v2.7 - Fixed Autocomplete</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -263,134 +263,212 @@
         }
 
         .edit-section {
-            padding: 16px;
-            background: #f8f9fa;
+            padding: 8px;
+            padding-bottom: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+            min-height: 180px;
+            max-height: 280px;
+            border-top: 1px solid #e1e5e9;
         }
 
-        #detailsContent {
-            background: white;
-            border-radius: 8px;
-            padding: 16px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        .no-selection {
+            text-align: center;
+            color: #6c757d;
+            font-style: italic;
+            margin-top: 5px;
+            padding: 0 5px;
+            font-size: 11px;
         }
 
-        .dog-details {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .detail-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid #e1e5e9;
-        }
-
-        .detail-row:last-child {
-            border-bottom: none;
-        }
-
-        .detail-label {
-            font-weight: 600;
-            color: #555;
-            font-size: 13px;
-            min-width: 80px;
-        }
-
-        .detail-value {
-            flex: 1;
-            text-align: right;
-            font-size: 14px;
-            color: #333;
-        }
-
-        .edit-driver-container {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .edit-driver-input {
-            flex: 1;
-            padding: 6px 8px;
-            border: 2px solid #667eea;
-            border-radius: 4px;
-            font-size: 13px;
-            background: white;
-        }
-
-        .edit-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        .edit-actions button, .action-btn {
-            padding: 8px 16px;
+        .btn {
+            padding: 8px 12px;
             border: none;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 14px;
+            border-radius: 5px;
             cursor: pointer;
+            font-weight: 600;
             transition: all 0.2s;
+            font-size: 14px;
+            margin: 2px;
+            user-select: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
         }
 
-        .save-btn {
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn:not(:disabled):hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .btn-primary {
             background: #667eea;
             color: white;
         }
 
-        .save-btn:hover:not(:disabled) {
-            background: #5a67d8;
-            transform: translateY(-1px);
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
         }
 
-        .save-btn:disabled {
-            background: #cbd5e0;
-            cursor: not-allowed;
-            transform: none;
+        .btn-clear {
+            background: #28a745;
+            color: white;
         }
 
-        .cancel-btn {
-            background: #e2e8f0;
-            color: #333;
+        .btn-danger {
+            background: #dc3545;
+            color: white;
         }
 
-        .cancel-btn:hover {
-            background: #cbd5e0;
-            transform: translateY(-1px);
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
         }
 
-        #notification {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: white;
-            padding: 12px 20px;
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .selection-mode-active {
+            background: #fff3cd !important;
+            border-color: #ffc107 !important;
+            color: #856404 !important;
+        }
+
+        .map-container {
+            flex: 1;
+            position: relative;
+            background: #f0f0f0;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            background: #f0f0f0;
+        }
+
+        .leaflet-tile-pane {
+            opacity: 1;
+        }
+
+        .leaflet-marker-pane {
+            opacity: 1 !important;
+            filter: none !important;
+        }
+
+        .bulk-edit-panel {
+            background: #f8f9fa;
+            border: 2px solid #007bff;
             border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            display: none;
-            z-index: 10000;
-            max-width: 350px;
-            border-left: 4px solid #667eea;
-            animation: slideIn 0.3s ease-out;
-        }
-
-        #notification.success {
-            border-left-color: #48bb78;
-        }
-
-        #notification.error {
-            border-left-color: #f56565;
-        }
-
-        #notification.info {
-            border-left-color: #4299e1;
+            padding: 15px;
+            margin-bottom: 10px;
+            animation: slideIn 0.3s ease;
         }
 
         @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .bulk-edit-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .bulk-edit-header h4 {
+            color: #007bff;
+            margin: 0;
+        }
+
+        .selected-count {
+            background: #007bff;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .bulk-edit-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .selected-dogs-preview {
+            max-height: 120px;
+            overflow-y: auto;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px;
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
+        .selected-dog-item {
+            padding: 2px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .selected-dog-item:last-child {
+            border-bottom: none;
+        }
+
+        .marker-selected {
+            filter: drop-shadow(0 0 10px #007bff) brightness(1.2);
+            transform: scale(1.2);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0,0,0,.1);
+            border-radius: 50%;
+            border-top-color: #333;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 9999;
+            animation: slideInRight 0.3s ease;
+            max-width: 350px;
+        }
+
+        @keyframes slideInRight {
             from {
                 transform: translateX(100%);
                 opacity: 0;
@@ -401,808 +479,1220 @@
             }
         }
 
-        .notification-close {
-            position: absolute;
-            top: 8px;
-            right: 8px;
-            background: none;
-            border: none;
-            font-size: 18px;
-            cursor: pointer;
-            color: #666;
-            line-height: 1;
-            padding: 0;
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
         }
 
-        .bulk-update-section {
-            background: #f8f9fa;
-            padding: 12px;
-            margin: 16px 0;
-            border-radius: 8px;
-            border: 2px dashed #cbd5e0;
+        .notification-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
         }
 
-        .bulk-update-section.active {
-            border-color: #667eea;
-            background: #edf2ff;
+        .notification-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
         }
 
-        .bulk-input-group {
-            display: flex;
+        .notification-info {
+            background: #cfe2ff;
+            color: #084298;
+            border: 1px solid #b6d4fe;
+        }
+
+        .save-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            display: none;
+            align-items: center;
             gap: 8px;
-            margin-bottom: 12px;
+            z-index: 1000;
+            font-size: 14px;
         }
 
-        .bulk-input {
-            flex: 1;
-            padding: 8px;
+        .custom-tooltip {
+            background: rgba(0, 0, 0, 0.9) !important;
+            border: 1px solid #333 !important;
+            color: white !important;
+            font-weight: 600 !important;
+            font-size: 16px !important;
+            padding: 8px 12px !important;
+            border-radius: 4px !important;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.4) !important;
+            white-space: normal !important;
+            max-width: 250px !important;
+            text-align: center !important;
+            line-height: 1.4 !important;
+        }
+        
+        .leaflet-tooltip-top:before {
+            border-top-color: rgba(0, 0, 0, 0.9) !important;
+        }
+
+        .connection-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: none;
+            align-items: center;
+            gap: 6px;
+            z-index: 1000;
+        }
+
+        .connection-status.connected {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .connection-status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-style: italic;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .version-indicator {
+            margin-left: auto;
+            padding: 0 10px;
+            color: #666;
+            font-size: 11px;
+        }
+
+        /* Fixed Autocomplete styling */
+        .autocomplete-container {
+            position: relative;
+            width: 100%;
+            display: inline-block;
+        }
+        
+        .autocomplete-hint {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            padding: 6px 10px;
             border: 2px solid #e1e5e9;
             border-radius: 6px;
             font-size: 14px;
-        }
-
-        .bulk-stats {
-            font-size: 14px;
-            color: #555;
-            margin-bottom: 8px;
-            font-weight: 600;
-        }
-
-        .selected-count {
-            background: #667eea;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            margin-left: 8px;
-        }
-
-        #map {
-            flex: 1;
-            z-index: 1;
-        }
-
-        .no-selection {
-            text-align: center;
             color: #999;
-            padding: 20px;
-            font-style: italic;
-        }
-
-        .search-hint {
-            position: absolute;
             pointer-events: none;
-            color: #999;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 14px;
-            white-space: nowrap;
-        }
-
-        .search-container {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-
-        /* Color Reset Button */
-        .reset-colors-btn {
-            padding: 6px 12px;
-            border: 2px solid #ff6b6b;
-            border-radius: 6px;
             background: white;
-            color: #ff6b6b;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-            font-size: 14px;
+            z-index: 1;
+            white-space: nowrap;
+            overflow: hidden;
         }
-
-        .reset-colors-btn:hover {
-            background: #ff6b6b;
-            color: white;
-            transform: translateY(-1px);
+        
+        .autocomplete-input {
+            position: relative;
+            background: transparent;
+            z-index: 2;
+            width: 100%;
         }
     </style>
 </head>
 <body>
-    <!-- Controls Bar -->
     <div class="controls">
         <div class="control-group">
-            <label for="searchInput">Search Dogs:</label>
-            <div class="search-container">
-                <input type="text" id="searchInput" placeholder="Name or address...">
-                <span id="searchHint" class="search-hint"></span>
+            <label for="searchInput">Search:</label>
+            <div class="autocomplete-container" style="width: 250px;">
+                <input type="text" id="searchHint" class="autocomplete-hint" readonly tabindex="-1" />
+                <input type="text" id="searchInput" class="autocomplete-input" placeholder="Search dogs, drivers, or addresses..." autocomplete="off" />
             </div>
         </div>
 
-        <div class="group-filters">
-            <label>Groups:</label>
-            <button id="group1Btn" class="group-filter-btn">Group 1</button>
-            <button id="group2Btn" class="group-filter-btn">Group 2</button>
-            <button id="group3Btn" class="group-filter-btn">Group 3</button>
-            <button id="showAllBtn" class="group-filter-btn" style="background: #f8f9fa;">Show All</button>
+        <div class="control-group group-filters">
+            <button class="group-filter-btn active" data-group="1" id="group1Btn">Group 1 ⭕</button>
+            <button class="group-filter-btn active" data-group="2" id="group2Btn">Group 2 ▲</button>
+            <button class="group-filter-btn active" data-group="3" id="group3Btn">Group 3 ■</button>
         </div>
 
         <div class="selection-controls">
-            <button id="selectionModeBtn" class="group-filter-btn">📍 Selection Mode</button>
-            <button id="clearSelectionBtn" class="group-filter-btn" style="display: none;">Clear Selection</button>
-            <button id="resetColorsBtn" class="reset-colors-btn" title="Clear all saved colors">🎨 Reset Colors</button>
+            <button class="btn btn-warning" id="selectionModeBtn">🎯 Select Mode</button>
+            <button class="btn btn-danger" id="clearSelectionBtn" style="display: none;">✖️ Clear Selection</button>
+        </div>
+
+        <div class="control-group">
+            <button class="btn btn-secondary" id="resetColorsBtn">🎨 Reset Colors</button>
+            <button class="btn btn-info" id="testConnectionBtn">🔌 Test Connection</button>
+        </div>
+        
+        <div class="version-indicator">
+            v2.7 - Fixed Autocomplete
         </div>
     </div>
 
-    <!-- Main Content Area -->
     <div class="main-content">
-        <!-- Left Panel -->
         <div class="left-panel" id="leftPanel">
-            <!-- Legend Section -->
             <div class="legend-section">
-                <div class="legend" id="legendContainer">
-                    <h3>Drivers</h3>
-                    <div id="legendItems"></div>
-                </div>
-            </div>
-
-            <!-- Edit Section -->
-            <div class="edit-section">
-                <h3>Edit Marker</h3>
-                <div id="detailsContent">
-                    <div class="no-selection">Click a marker to edit</div>
+                <div style="text-align: center; margin-bottom: 6px;">
+                    <button class="btn btn-clear" id="showAllBtn" style="width: 100%; padding: 6px 8px; font-size: 12px;">Show All</button>
                 </div>
                 
-                <!-- Bulk Update Section (only visible in selection mode) -->
-                <div id="bulkUpdateSection" class="bulk-update-section" style="display: none;">
-                    <div class="bulk-stats">
-                        <span>Bulk Update</span>
-                        <span class="selected-count" id="selectedCount">0 selected</span>
-                    </div>
-                    <div class="bulk-input-group">
-                        <input type="text" id="bulkDriverInput" class="bulk-input" placeholder="Driver name">
-                    </div>
-                    <button id="bulkUpdateBtn" class="save-btn" onclick="bulkUpdateSelected()">💾 Update All</button>
+                <h3>Drivers</h3>
+                <div id="legendContent">Loading...</div>
+            </div>
+            
+            <div class="edit-section">
+                <div id="bulkEditPanel" style="display: none;"></div>
+                <div id="detailsContent" class="no-selection">
+                    Click a marker to edit
                 </div>
             </div>
         </div>
+        
+        <button class="panel-toggle" id="panelToggle">
+            <span id="panelToggleIcon">◀</span>
+        </button>
 
-        <!-- Panel Toggle (for mobile) -->
-        <button class="panel-toggle" id="panelToggle">◀</button>
-
-        <!-- Map Container -->
-        <div id="map"></div>
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
     </div>
 
-    <!-- Notification -->
-    <div id="notification" class="notification">
-        <button class="notification-close" onclick="this.parentElement.style.display='none'">×</button>
-        <div id="notificationText"></div>
+    <div id="saveIndicator" class="save-indicator" style="display: none;">
+        <span class="spinner"></span>
+        <span>Saving...</span>
+    </div>
+
+    <div id="connectionStatus" class="connection-status" style="display: none;">
+        <span>Sheet Connection</span>
     </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- Leaflet Draw JS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
-    <!-- PapaParse for CSV -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     
+    <!-- JavaScript will go here - see Part 2 artifact -->
     <script>
-// ==================== COLOR PERSISTENCE FUNCTIONS ====================
-// These functions handle saving and loading driver colors from localStorage
-
-function saveDriverColor(driverName, color) {
-    try {
-        const savedColors = JSON.parse(localStorage.getItem('driverColors') || '{}');
-        savedColors[driverName] = color;
-        localStorage.setItem('driverColors', JSON.stringify(savedColors));
-        console.log(`Saved color for ${driverName}: ${color}`);
-    } catch (error) {
-        console.error('Error saving driver color:', error);
-    }
-}
-
-function loadSavedColors() {
-    try {
-        const savedColors = JSON.parse(localStorage.getItem('driverColors') || '{}');
-        console.log('Loaded saved colors:', savedColors);
-        return savedColors;
-    } catch (error) {
-        console.error('Error loading saved colors:', error);
-        return {};
-    }
-}
-
-function resetColors() {
-    if (confirm('This will reset all custom driver colors to defaults. Are you sure?')) {
-        localStorage.removeItem('driverColors');
-        state.driverColors = {};
-        assignDriverColors();
-        updateMap();
-        showNotification('Colors reset to defaults', 'success');
-    }
-}
+        'use strict';
 
 // ==================== CONFIGURATION ====================
-const CONFIG = {
-    BOUNDS: [[42.68, -71.13], [42.73, -71.06]],
-    CENTER: [42.7094, -71.1077],
-    ZOOM: 14,
-    MIN_ZOOM: 12,
-    MAX_ZOOM: 18,
-    CSV_URL: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRxdTBQOQbvb9s4_JAL3aJJJRV0jAamQEQv_C0fmZGaZW0iJkNJ82FOmLf4gGHvqVLv2QuVt_ZAa8Qf/pub?gid=0&single=true&output=csv',
-    CSV_CACHE_TIME: 30000,
+const CONFIG = Object.freeze({
+    SHEET_ID: '17QMFeALjTRJZdMAn9fJPgeh7meL80scQ1KipKJ4jz2A',
+    WORKSHEET_NAME: 'Mymap',
+    API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
+    APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx8j56q2vKpgm2jZu-bL3SxyySZccBK6F8XK-LinPmzHxEJDFh-aY-wIO6gVPfX8NH0dQ/exec',
+    DEFAULT_LAT: 42.2968,
+    DEFAULT_LNG: -71.2636,
+    DEFAULT_ZOOM: 11,
     DEBOUNCE_DELAY: 300,
-    RAINBOW_COLORS: [
-        '#FF0000', '#FF4500', '#FFA500', '#FFD700', '#FFFF00',
-        '#ADFF2F', '#00FF00', '#00CED1', '#0000FF', '#4B0082',
-        '#8B008B', '#FF1493', '#FF69B4', '#FF6347', '#40E0D0'
-    ],
-    WEB_APP_URL: 'https://script.google.com/macros/s/AKfycbx_xt5HXzoFo5VcX-b9TUOBXCZJlCcJCt3xSJLAQKZzCLXpZmYL7EfXMELVX2vw4UF4/exec'
-};
+    MAX_MARKERS: 10000,
+    MAX_SELECTION: 500
+});
 
-// ==================== APPLICATION STATE ====================
+// Master color palette
+const ALL_COLORS = Object.freeze([
+    '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f',
+    '#bcbd22', '#17becf', '#ff9896', '#98df8a', '#c5b0d5', '#c49c94', '#f7b6d3', '#c7c7c7',
+    '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#FF9FF3', '#54A0FF',
+    '#5F27CD', '#00D2D3', '#FF9F43', '#10AC84', '#EE5A24', '#0097E6', '#8C7AE6', '#F79F1F',
+    '#A3CB38', '#E74C3C', '#3742FA', '#2F3542', '#FF3838', '#2ECC71', '#9B59B6', '#E67E22',
+    '#1ABC9C', '#34495E', '#F39C12', '#E91E63', '#00BCD4', '#607D8B', '#795548', '#009688',
+    '#FF5722', '#673AB7', '#3F51B5', '#2196F3', '#03DAC6', '#6200EA', '#FF4081', '#FFAB00',
+    '#00E676', '#DD2C00', '#651FFF', '#FF6D00', '#FF1744', '#00E5FF', '#BF360C', '#1B5E20'
+]);
+
+// ==================== STATE MANAGEMENT ====================
 const state = {
     map: null,
-    allData: [],
-    filteredData: [],
     markers: [],
-    layerGroups: {
-        1: null,
-        2: null,
-        3: null
-    },
     markerLookup: new Map(),
     coordinateLookup: new Map(),
-    lastCsvLoad: 0,
+    allData: [],
+    filteredData: [],
+    colorMap: {},
     selectedMarker: null,
     selectedRow: null,
+    currentFilter: null,
+    driverColorMap: {},
+    customColors: {},
+    activeGroups: [1, 2, 3],
     selectionMode: false,
     selectedMarkers: new Set(),
-    activeGroupFilters: new Set(),
-    driverColors: {},
-    activeDriver: null,
-    searchInput: null,
-    searchMatches: [],
-    currentMatchIndex: -1
+    drawControl: null,
+    drawnItems: null,
+    isUpdating: false,
+    pendingSaves: new Map(),
+    saveQueue: [],
+    isSaving: false,
+    driverCounts: {}
 };
 
 // ==================== UTILITY FUNCTIONS ====================
+function showNotification(message, type = 'info', duration = 3000) {
+    const existing = document.querySelector('.notification');
+    if (existing) {
+        existing.remove();
+    }
+    
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    if (duration > 0) {
+        setTimeout(() => {
+            notification.style.animation = 'fadeOut 0.3s ease';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 300);
+        }, duration);
+    }
+}
+
 function debounce(func, wait) {
     let timeout;
-    return function executedFunction(...args) {
-        const later = () => {
-            clearTimeout(timeout);
-            func(...args);
-        };
+    return function(...args) {
         clearTimeout(timeout);
-        timeout = setTimeout(later, wait);
+        timeout = setTimeout(() => func.apply(this, args), wait);
     };
 }
 
-function showNotification(message, type = 'info', duration = 3000) {
-    const notification = document.getElementById('notification');
-    const notificationText = document.getElementById('notificationText');
+function escapeHtml(text) {
+    if (text == null) return '';
+    const div = document.createElement('div');
+    div.textContent = String(text);
+    return div.innerHTML;
+}
+
+function validateCoordinates(lat, lng) {
+    const latNum = Number(lat);
+    const lngNum = Number(lng);
     
-    if (notification && notificationText) {
-        notificationText.textContent = message;
-        notification.className = `notification ${type}`;
-        notification.style.display = 'block';
-        
-        if (duration > 0) {
-            setTimeout(() => {
-                notification.style.display = 'none';
-            }, duration);
+    if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+        return false;
+    }
+    
+    if (latNum < -90 || latNum > 90 || lngNum < -180 || lngNum > 180) {
+        return false;
+    }
+    
+    if (Math.abs(latNum) < 0.0001 && Math.abs(lngNum) < 0.0001) {
+        return false;
+    }
+    
+    return true;
+}
+
+// Parse group from the Group column
+function parseGroup(groupValue) {
+    if (!groupValue) return null;
+    
+    const originalValue = String(groupValue).trim();
+    let strValue = originalValue;
+    if (!strValue) return null;
+    
+    // Remove business codes
+    if (strValue.includes('&')) {
+        const parts = strValue.split('&').map(part => {
+            return part.replace(/DD|SUB|AA|Trial|F|XX/g, '').trim();
+        });
+        strValue = parts.join('&');
+    } else {
+        strValue = strValue.replace(/(\d)(DD|SUB|Trial|AA|F|XX)(\d)/g, '$1$3');
+        strValue = strValue.replace(/(\d)(DD|Trial|SUB|AA|F|XX)$/g, '$1');
+    }
+    
+    if (strValue !== originalValue && originalValue.match(/DD|Trial|SUB|AA|F/)) {
+        console.log(`Business code parsed: "${originalValue}" -> "${strValue}"`);
+    }
+    
+    if (strValue.match(/^([123])\1$/)) {
+        return parseInt(strValue[0], 10);
+    }
+    
+    if (strValue.includes('&')) {
+        const groups = strValue.split('&')
+            .map(g => g.trim())
+            .filter(g => g.match(/^[123]$/))
+            .sort();
+        if (groups.length === 2) {
+            const joined = groups.join('');
+            if (joined === '12' || joined === '23') {
+                return joined;
+            }
+            if (joined === '13') {
+                return '123';
+            }
+        } else if (groups.length === 1) {
+            return parseInt(groups[0], 10);
+        }
+    }
+    
+    if (strValue.match(/^[123]{2,3}$/)) {
+        const uniqueGroups = [...new Set(strValue.split(''))].sort().join('');
+        if (uniqueGroups === '13') {
+            return '123';
+        }
+        return uniqueGroups;
+    }
+    
+    if (strValue.match(/^[123]$/)) {
+        return parseInt(strValue, 10);
+    }
+    
+    return null;
+}
+
+function getDogId(row) {
+    if (!row) return null;
+    
+    if (row['_uniqueId']) {
+        return row['_uniqueId'];
+    }
+    
+    let id = null;
+    
+    if (row['Dog ID'] && row['Dog ID'].trim()) {
+        id = row['Dog ID'].trim();
+    } else if (row['Dog Name'] && row['Dog Name'].trim()) {
+        id = row['Dog Name'].trim();
+        const index = row['_rowIndex'] ?? state.allData.indexOf(row);
+        if (index >= 0) {
+            id = `${id}_${index}`;
         }
     } else {
-        console.log(`[${type.toUpperCase()}] ${message}`);
+        const index = row['_rowIndex'] ?? state.allData.indexOf(row);
+        id = `dog_${index >= 0 ? index : Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
+    
+    row['_uniqueId'] = id;
+    return id;
 }
 
-function parseGroup(groupValue) {
-    if (!groupValue || groupValue === '') return [];
-    
-    const groupStr = String(groupValue).trim().toUpperCase();
-    const groups = [];
-    
-    const singlePattern = /^([123])([A-Z]*)\d*$/;
-    const singleMatch = groupStr.match(singlePattern);
-    if (singleMatch) {
-        groups.push(parseInt(singleMatch[1]));
-        return groups;
+function getSheetRowIndex(row) {
+    if (row && typeof row['_rowIndex'] === 'number') {
+        return row['_rowIndex'] + 2;
     }
     
-    const doublePattern = /^([123])[A-Z]*&([123])[A-Z]*\d*$/;
-    const doubleMatch = groupStr.match(doublePattern);
-    if (doubleMatch) {
-        groups.push(parseInt(doubleMatch[1]));
-        groups.push(parseInt(doubleMatch[2]));
-        return groups;
+    const index = state.allData.indexOf(row);
+    if (index !== -1) {
+        return index + 2;
     }
     
-    const triplePattern = /^([123])([A-Z]*)([123])([123])$/;
-    const tripleMatch = groupStr.match(triplePattern);
-    if (tripleMatch) {
-        groups.push(parseInt(tripleMatch[1]));
-        groups.push(parseInt(tripleMatch[3]));
-        groups.push(parseInt(tripleMatch[4]));
-        return groups;
-    }
-    
-    console.log('No pattern matched for group value:', groupValue);
-    return groups;
+    console.error('Could not determine sheet row index for row:', row);
+    return -1;
 }
 
-function assignDriverColors() {
-    const drivers = new Set();
-    state.allData.forEach(row => {
-        if (row['Driver'] && row['Driver'].trim()) {
-            drivers.add(row['Driver'].trim());
-        }
-    });
-
-    const sortedDrivers = Array.from(drivers).sort();
+function isPointInPolygon(point, polygon) {
+    if (!polygon || polygon.length < 3) return false;
+    if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return false;
     
-    // Load saved colors first
-    const savedColors = loadSavedColors();
+    const x = point.lat, y = point.lng;
+    let inside = false;
     
-    // Reset driver colors but keep saved ones
-    state.driverColors = {};
-    
-    sortedDrivers.forEach((driver, index) => {
-        // Check if we have a saved color for this driver
-        if (savedColors[driver]) {
-            state.driverColors[driver] = savedColors[driver];
-        } else {
-            // Assign default color
-            state.driverColors[driver] = CONFIG.RAINBOW_COLORS[index % CONFIG.RAINBOW_COLORS.length];
-        }
-    });
-
-    updateLegend();
-}
-
-function createIcon(color, isSelected = false, isActiveDriver = false) {
-    let size = 10;
-    let borderWidth = 2;
-    
-    if (isSelected) {
-        size = 14;
-        borderWidth = 3;
-    } else if (isActiveDriver) {
-        size = 12;
-        borderWidth = 2.5;
-    }
-    
-    const svgIcon = `
-        <svg width="${size * 2}" height="${size * 2}" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="${size}" cy="${size}" r="${size - borderWidth}" 
-                    fill="${color}" 
-                    stroke="${isSelected ? '#FFD700' : '#333'}" 
-                    stroke-width="${borderWidth}"/>
-        </svg>
-    `;
-    
-    return L.divIcon({
-        html: svgIcon,
-        iconSize: [size * 2, size * 2],
-        iconAnchor: [size, size],
-        className: 'custom-marker-icon'
-    });
-}
-
-// ==================== AUTOCOMPLETE FUNCTIONALITY ====================
-function setupAutocomplete(searchInput, searchHint) {
-    if (!searchInput || !searchHint) return;
-
-    let currentSuggestion = '';
-    
-    function getAllSearchableText() {
-        const searchableTexts = new Set();
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].lat, yi = polygon[i].lng;
+        const xj = polygon[j].lat, yj = polygon[j].lng;
         
-        state.allData.forEach(row => {
-            if (row['Dog Name']) searchableTexts.add(row['Dog Name']);
-            if (row['Address']) searchableTexts.add(row['Address']);
-            if (row['Driver']) searchableTexts.add(row['Driver']);
+        if (!Number.isFinite(xi) || !Number.isFinite(yi) || 
+            !Number.isFinite(xj) || !Number.isFinite(yj)) {
+            continue;
+        }
+        
+        const intersect = ((yi > y) !== (yj > y)) &&
+            (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+        
+        if (intersect) inside = !inside;
+    }
+    
+    return inside;
+}
+
+// ==================== APPS SCRIPT COMMUNICATION ====================
+async function callAppsScript(payload) {
+    try {
+        const response = await fetch(CONFIG.APPS_SCRIPT_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: {
+                'Content-Type': 'text/plain',
+            },
+            body: JSON.stringify(payload)
         });
         
-        return Array.from(searchableTexts).sort();
+        return { success: true };
+        
+    } catch (error) {
+        console.error('Error calling Apps Script:', error);
+        throw error;
+    }
+}
+
+async function testAppsScriptConnection() {
+    try {
+        console.log('Testing Apps Script connection to:', CONFIG.APPS_SCRIPT_URL);
+        
+        const statusEl = document.getElementById('connectionStatus');
+        if (statusEl) {
+            statusEl.style.display = 'flex';
+            statusEl.className = 'connection-status';
+            statusEl.innerHTML = '<span class="spinner"></span><span>Testing connection...</span>';
+        }
+        
+        const response = await fetch(CONFIG.APPS_SCRIPT_URL);
+        const text = await response.text();
+        
+        if (text.includes('Standalone Dog Walking Map Script')) {
+            showNotification('✅ Google Sheets connection verified!', 'success');
+            console.log('Apps Script GET response:', text);
+            
+            if (statusEl) {
+                statusEl.className = 'connection-status connected';
+                statusEl.innerHTML = '✅ Sheet Connected';
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 3000);
+            }
+            
+            return true;
+        } else {
+            showNotification('⚠️ Apps Script found but response unexpected', 'warning');
+            console.log('Unexpected response:', text);
+            
+            if (statusEl) {
+                statusEl.className = 'connection-status disconnected';
+                statusEl.innerHTML = '⚠️ Connection Issue';
+            }
+            
+            return false;
+        }
+    } catch (error) {
+        console.error('Apps Script test failed:', error);
+        showNotification('⚠️ Could not connect to Google Sheets', 'error');
+        
+        const statusEl = document.getElementById('connectionStatus');
+        if (statusEl) {
+            statusEl.className = 'connection-status disconnected';
+            statusEl.innerHTML = '❌ Not Connected';
+        }
+        
+        return false;
+    }
+}
+
+// ==================== COLOR MANAGEMENT ====================
+function assignDriverColors() {
+    if (!state.allData || state.allData.length === 0) {
+        state.driverColorMap = {};
+        return;
     }
     
-    function updateHint() {
-        const inputValue = searchInput.value.toLowerCase();
-        searchHint.textContent = '';
-        currentSuggestion = '';
+    const drivers = new Set();
+    
+    state.allData.forEach(row => {
+        if (row) {
+            const driverName = (row['Driver'] && row['Driver'].trim()) ? 
+                             row['Driver'].trim() : 
+                             (row['Combined'] ? row['Combined'].trim() : '');
+            if (driverName) {
+                drivers.add(driverName);
+            }
+        }
+    });
+    
+    const sortedDrivers = Array.from(drivers).sort();
+    const newColorMap = {};
+    
+    sortedDrivers.forEach((driver, index) => {
+        if (state.customColors[driver]) {
+            newColorMap[driver] = state.customColors[driver];
+        } else if (state.driverColorMap[driver]) {
+            newColorMap[driver] = state.driverColorMap[driver];
+        } else if (index < ALL_COLORS.length) {
+            newColorMap[driver] = ALL_COLORS[index];
+        } else {
+            let hash = 0;
+            for (let i = 0; i < driver.length; i++) {
+                hash = ((hash << 5) - hash) + driver.charCodeAt(i);
+                hash = hash & hash;
+            }
+            const hue = Math.abs(hash) % 360;
+            newColorMap[driver] = `hsl(${hue}, 70%, 50%)`;
+        }
+    });
+    
+    state.driverColorMap = newColorMap;
+    console.log('Assigned colors to', sortedDrivers.length, 'drivers');
+}
+
+function getDriverColor(name) {
+    if (!name || name.trim() === '') return '#999999';
+    const trimmedName = name.trim();
+    
+    if (trimmedName.toLowerCase().includes('unassigned')) {
+        return '#000000';
+    }
+    
+    if (state.customColors[trimmedName]) return state.customColors[trimmedName];
+    return state.driverColorMap[trimmedName] || '#999999';
+}
+
+function changeCustomColor(categoryName, newColor) {
+    console.log('Changing color for:', categoryName, 'to:', newColor);
+    state.customColors[categoryName] = newColor;
+    assignDriverColors();
+    updateMap();
+    showNotification(`Color updated for ${categoryName}`, 'success', 2000);
+}
+
+// ==================== TRUE AUTOCOMPLETE FUNCTIONS ====================
+function getUniqueDriverNames() {
+    const drivers = new Set();
+    
+    state.allData.forEach(row => {
+        if (row) {
+            const driverName = row['Driver']?.trim();
+            const combinedName = row['Combined']?.trim();
+            
+            if (driverName && driverName !== '') {
+                drivers.add(driverName);
+            }
+            if (combinedName && combinedName !== '' && combinedName !== driverName) {
+                drivers.add(combinedName);
+            }
+        }
+    });
+    
+    drivers.delete('');
+    drivers.delete('unassigned');
+    drivers.delete('Unassigned');
+    
+    return Array.from(drivers).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+}
+
+// Global variable to store driver names for autocomplete
+let driverNamesList = [];
+
+function updateDriverNamesList() {
+    driverNamesList = getUniqueDriverNames();
+    console.log(`Updated driver list with ${driverNamesList.length} names for autocomplete`);
+}
+
+function setupAutocomplete(inputElement, hintElement) {
+    if (!inputElement) return;
+    
+    let currentSuggestion = '';
+    
+    inputElement.addEventListener('input', function(e) {
+        const value = this.value;
         
-        if (!inputValue) return;
+        if (!value || value.length < 1) {
+            if (hintElement) hintElement.value = '';
+            currentSuggestion = '';
+            return;
+        }
         
-        const allTexts = getAllSearchableText();
-        const match = allTexts.find(text => 
-            text.toLowerCase().startsWith(inputValue) && 
-            text.toLowerCase() !== inputValue
+        // Find first matching driver name (case-insensitive)
+        const valueLower = value.toLowerCase();
+        const match = driverNamesList.find(name => 
+            name.toLowerCase().startsWith(valueLower) && 
+            name.toLowerCase() !== valueLower
         );
         
         if (match) {
             currentSuggestion = match;
-            const visiblePart = match.substring(inputValue.length);
-            searchHint.textContent = searchInput.value + visiblePart;
-        }
-    }
-    
-    searchInput.addEventListener('input', updateHint);
-    
-    searchInput.addEventListener('keydown', function(e) {
-        if (e.key === 'Tab' && currentSuggestion) {
-            e.preventDefault();
-            searchInput.value = currentSuggestion;
-            searchHint.textContent = '';
+            if (hintElement) {
+                // Show the full suggestion with the typed part + the completion
+                hintElement.value = value + match.substring(value.length);
+            }
+        } else {
             currentSuggestion = '';
-            debouncedUpdateMap();
+            if (hintElement) hintElement.value = '';
         }
     });
     
-    searchInput.addEventListener('blur', function() {
-        searchHint.textContent = '';
+    // Handle Tab key to accept suggestion
+    inputElement.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab' && currentSuggestion) {
+            e.preventDefault();
+            this.value = currentSuggestion;
+            if (hintElement) hintElement.value = '';
+            currentSuggestion = '';
+            
+            // Trigger input event to update any listeners
+            this.dispatchEvent(new Event('input', { bubbles: true }));
+        } else if (e.key === 'Enter') {
+            if (hintElement) hintElement.value = '';
+            currentSuggestion = '';
+        } else if (e.key === 'Escape') {
+            if (hintElement) hintElement.value = '';
+            currentSuggestion = '';
+        }
+    });
+    
+    // Clear hint when focus is lost
+    inputElement.addEventListener('blur', function() {
+        setTimeout(() => {
+            if (hintElement) hintElement.value = '';
+            currentSuggestion = '';
+        }, 100);
     });
 }
 
-// ==================== LEGEND MANAGEMENT ====================
-function updateLegend() {
-    const legendItems = document.getElementById('legendItems');
-    if (!legendItems) return;
+// ==================== MARKER CREATION ====================
+function createMarkerIcon(color, isSelected = false, markerType = 'circle', group = null, isInSelection = false, dogName = null, hasCallout = false) {
+    if (dogName) {
+        const dogNameLower = dogName.toLowerCase();
+        if (dogNameLower === 'park' || dogNameLower === 'field') {
+            const isPark = dogNameLower === 'park';
+            const strokeColor = isInSelection ? '#007bff' : (isSelected ? '#007bff' : '#666666');
+            const strokeWidth = isSelected ? 3 : (isInSelection ? 3 : 2);
+            const size = isInSelection ? 28 : 24;
+            const fillColor = isPark ? '#FFFFFF' : '#000000';
+            
+            return L.divIcon({
+                html: `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                    <path d="M${size/2} 2 L${size-2} ${size/2} L${size/2} ${size-2} L2 ${size/2} Z" 
+                          fill="${fillColor}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                </svg>`,
+                className: `custom-diamond-marker ${isInSelection ? 'marker-selected' : ''}`,
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+        }
+    }
     
-    legendItems.innerHTML = '';
+    color = color || '#999999';
+    const strokeColor = hasCallout ? '#ff0000' : (isInSelection ? '#007bff' : (isSelected ? '#007bff' : '#000000'));
+    const strokeWidth = isSelected ? 3 : (isInSelection ? 3 : 2);
+    const size = isInSelection ? 16 : 13;
     
-    const sortedDrivers = Object.keys(state.driverColors).sort();
+    let icon;
     
-    sortedDrivers.forEach(driver => {
-        const color = state.driverColors[driver];
-        const legendItem = document.createElement('div');
-        legendItem.className = 'legend-item';
-        legendItem.dataset.driver = driver;
-        
-        if (state.activeDriver === driver) {
-            legendItem.classList.add('active');
+    try {
+        if (group === 2) {
+            const svgSize = size + 3;
+            icon = L.divIcon({
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                    <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize-2} L2 ${svgSize-2} Z" 
+                          fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                </svg>`,
+                className: `custom-triangle-marker ${isInSelection ? 'marker-selected' : ''}`,
+                iconSize: [svgSize, svgSize],
+                iconAnchor: [svgSize/2, svgSize/2]
+            });
+        } else if (group === 3) {
+            icon = L.divIcon({
+                html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
+                className: `custom-square-marker ${isInSelection ? 'marker-selected' : ''}`,
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
+        } else if (group === '12') {
+            const svgSize = size + 4;
+            icon = L.divIcon({
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                    <polygon points="${svgSize/2},2 ${svgSize*0.6},${svgSize*0.4} ${svgSize-2},${svgSize*0.4} ${svgSize*0.7},${svgSize*0.6} ${svgSize*0.8},${svgSize-2} ${svgSize/2},${svgSize*0.75} ${svgSize*0.2},${svgSize-2} ${svgSize*0.3},${svgSize*0.6} 2,${svgSize*0.4} ${svgSize*0.4},${svgSize*0.4}" 
+                             fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                </svg>`,
+                className: `custom-star-marker ${isInSelection ? 'marker-selected' : ''}`,
+                iconSize: [svgSize, svgSize],
+                iconAnchor: [svgSize/2, svgSize/2]
+            });
+        } else if (group === '23') {
+            const svgSize = size + 4;
+            icon = L.divIcon({
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                    <path d="M3 2 L${svgSize-3} 2 L${svgSize-5} ${svgSize-2} L5 ${svgSize-2} Z" 
+                          fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                </svg>`,
+                className: `custom-trapezoid-marker ${isInSelection ? 'marker-selected' : ''}`,
+                iconSize: [svgSize, svgSize],
+                iconAnchor: [svgSize/2, svgSize/2]
+            });
+        } else if (group === '123') {
+            const svgSize = size + 4;
+            const cx = svgSize/2;
+            const cy = svgSize/2;
+            const r = (svgSize-4)/2;
+            icon = L.divIcon({
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                    <polygon points="${cx+r},${cy} ${cx+r/2},${cy-r*0.866} ${cx-r/2},${cy-r*0.866} ${cx-r},${cy} ${cx-r/2},${cy+r*0.866} ${cx+r/2},${cy+r*0.866}" 
+                             fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
+                </svg>`,
+                className: `custom-hexagon-marker ${isInSelection ? 'marker-selected' : ''}`,
+                iconSize: [svgSize, svgSize],
+                iconAnchor: [svgSize/2, svgSize/2]
+            });
+        } else {
+            icon = L.divIcon({
+                html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
+                className: `custom-marker ${isInSelection ? 'marker-selected' : ''}`,
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
         }
         
-        legendItem.innerHTML = `
-            <span class="legend-color" style="background-color: ${color}"></span>
-            <span class="legend-text">${driver}</span>
-            <input type="color" class="color-picker" value="${color}" data-driver="${driver}">
-        `;
+        return icon;
         
-        legendItem.querySelector('.legend-text').addEventListener('click', (e) => {
-            filterByCategory('Driver', driver);
-            
-            document.querySelectorAll('.legend-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            legendItem.classList.add('active');
+    } catch (error) {
+        console.error('Error creating marker icon:', error);
+        return L.divIcon({
+            html: `<div style="width: 13px; height: 13px; background-color: #999999; border: 2px solid #000000; border-radius: 50%;"></div>`,
+            className: 'custom-marker-fallback',
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
         });
-        
-        const colorPicker = legendItem.querySelector('.color-picker');
-        colorPicker.addEventListener('change', (e) => {
-            const newColor = e.target.value;
-            state.driverColors[driver] = newColor;
-            saveDriverColor(driver, newColor);  // Save to localStorage
-            legendItem.querySelector('.legend-color').style.backgroundColor = newColor;
-            updateMap();
-        });
-        
-        colorPicker.addEventListener('click', (e) => {
-            e.stopPropagation();
-        });
-        
-        legendItems.appendChild(legendItem);
-    });
+    }
 }
 
 // ==================== MAP INITIALIZATION ====================
 function initMap() {
-    console.log('Initializing map...');
-    
-    state.map = L.map('map', {
-        zoomControl: true,
-        attributionControl: true,
-        maxBounds: L.latLngBounds(
-            [CONFIG.BOUNDS[0][0] - 0.1, CONFIG.BOUNDS[0][1] - 0.1],
-            [CONFIG.BOUNDS[1][0] + 0.1, CONFIG.BOUNDS[1][1] + 0.1]
-        )
-    }).setView(CONFIG.CENTER, CONFIG.ZOOM);
+    try {
+        console.log('Initializing map...');
+        
+        if (typeof L === 'undefined') {
+            throw new Error('Leaflet library not loaded');
+        }
+        
+        state.map = L.map('map', {
+            center: [CONFIG.DEFAULT_LAT, CONFIG.DEFAULT_LNG],
+            zoom: CONFIG.DEFAULT_ZOOM,
+            preferCanvas: true,
+            zoomControl: true,
+            attributionControl: true
+        });
+        
+        const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png';
+        
+        console.log('Loading map tiles: Stamen Toner (High contrast for clear streets)');
+        
+        const tileLayer = L.tileLayer(tileUrl, {
+            attribution: 'Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL.',
+            maxZoom: 19,
+            minZoom: 2,
+            errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+        });
+        
+        let fallbackLayer = null;
+        let tileLoadTimeout = null;
+        
+        tileLoadTimeout = setTimeout(() => {
+            const tiles = document.querySelectorAll('.leaflet-tile');
+            if (tiles.length === 0 && !fallbackLayer) {
+                console.warn('No tiles loaded - switching to fallback');
+                showNotification('Stamen server not responding, trying fallback...', 'info');
+                
+                fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors © CARTO',
+                    maxZoom: 19
+                });
+                state.map.removeLayer(tileLayer);
+                fallbackLayer.addTo(state.map);
+            }
+        }, 5000);
+        
+        tileLayer.on('tileerror', function(error) {
+            console.error('Tile load error:', error);
+            if (tileLoadTimeout) {
+                clearTimeout(tileLoadTimeout);
+                tileLoadTimeout = null;
+            }
+            
+            if (!fallbackLayer) {
+                console.log('Switching to fallback map provider (CartoDB Positron)...');
+                fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors © CARTO',
+                    maxZoom: 19
+                });
+                state.map.removeLayer(tileLayer);
+                fallbackLayer.addTo(state.map);
+                showNotification('Using fallback map tiles', 'info');
+            }
+        });
+        
+        tileLayer.on('tileload', function() {
+            if (tileLoadTimeout) {
+                clearTimeout(tileLoadTimeout);
+                tileLoadTimeout = null;
+            }
+        });
+        
+        tileLayer.addTo(state.map);
+        
+        setTimeout(() => {
+            const tiles = document.querySelectorAll('.leaflet-tile');
+            const loadedTiles = document.querySelectorAll('.leaflet-tile-loaded');
+            if (tiles.length === 0) {
+                console.warn('No tiles found - map provider may be down');
+                console.warn('Current tile URL pattern:', tileUrl);
+                showNotification('Map tiles not loading - check console for details', 'error');
+            } else {
+                console.log(`Map tiles status: ${tiles.length} total, ${loadedTiles.length} loaded`);
+                if (loadedTiles.length === 0) {
+                    console.warn('Tiles found but none loaded - possible network issue');
+                }
+            }
+        }, 3000);
+        
+        state.map.on('error', function(e) {
+            console.error('Map error:', e);
+        });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: CONFIG.MAX_ZOOM,
-        minZoom: CONFIG.MIN_ZOOM,
-        attribution: '© OpenStreetMap contributors'
-    }).addTo(state.map);
-    
-    state.layerGroups[1] = L.layerGroup().addTo(state.map);
-    state.layerGroups[2] = L.layerGroup().addTo(state.map);
-    state.layerGroups[3] = L.layerGroup().addTo(state.map);
-    
-    L.control.zoom({
-        position: 'topright'
-    }).addTo(state.map);
-    
-    console.log('Map initialized successfully');
+        console.log('Map initialized successfully');
+        
+    } catch (error) {
+        console.error('Error initializing map:', error);
+        showNotification('Failed to initialize map. Please refresh the page.', 'error', 0);
+    }
 }
 
 // ==================== DATA LOADING ====================
 async function loadData() {
-    const now = Date.now();
-    if (now - state.lastCsvLoad < CONFIG.CSV_CACHE_TIME && state.allData.length > 0) {
-        console.log('Using cached data');
-        updateMap();
-        return;
-    }
-
-    console.log('Loading data from Google Sheets...');
-    showNotification('Loading data...', 'info');
-
+    showNotification('Loading data from Google Sheets...', 'info');
+    
     try {
-        const response = await fetch(CONFIG.CSV_URL);
+        if (!CONFIG.SHEET_ID || !CONFIG.API_KEY) {
+            throw new Error('Sheet ID or API key not configured');
+        }
+        
+        const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
+        
+        console.log(`Loading data from sheet: "${CONFIG.WORKSHEET_NAME}"`);
+        
+        const response = await fetch(url);
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            if (response.status === 403) {
+                throw new Error('Access denied - check API key permissions');
+            } else if (response.status === 404) {
+                throw new Error(`Sheet not found - verify worksheet name "${CONFIG.WORKSHEET_NAME}"`);
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
         }
         
-        const csvText = await response.text();
+        const data = await response.json();
         
-        if (!csvText || csvText.trim() === '') {
-            throw new Error('Received empty CSV data');
+        if (!data || !data.values || data.values.length < 2) {
+            throw new Error('No data found in sheet');
         }
         
-        Papa.parse(csvText, {
-            header: true,
-            skipEmptyLines: true,
-            complete: function(results) {
-                console.log('CSV parsed successfully');
-                console.log(`Loaded ${results.data.length} rows`);
-                
-                state.allData = results.data.map((row, index) => {
-                    row._rowIndex = index;
-                    return row;
+        const headers = data.values[0];
+        const rows = data.values.slice(1);
+        
+        console.log('Headers from Google Sheet:', headers);
+        
+        const requiredColumns = ['Dog Name', 'Latitude', 'Longitude', 'Group'];
+        const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+        
+        if (missingColumns.length > 0) {
+            console.warn(`Missing columns: ${missingColumns.join(', ')}`);
+        }
+        
+        const processedData = [];
+        let validRows = 0;
+        const invalidRows = [];
+        
+        rows.forEach((row, index) => {
+            try {
+                const obj = {};
+                headers.forEach((header, headerIndex) => {
+                    obj[header] = row[headerIndex] || '';
                 });
                 
-                state.lastCsvLoad = now;
+                if (!obj['Dog Name'] || obj['Dog Name'].trim() === '') {
+                    invalidRows.push(index + 2);
+                    return;
+                }
                 
-                assignDriverColors();
-                updateMap();
-                showNotification('Data loaded successfully!', 'success');
-            },
-            error: function(error) {
-                console.error('Papa Parse error:', error);
-                showNotification('Error parsing CSV data', 'error');
+                const lat = parseFloat(obj['Latitude']);
+                const lng = parseFloat(obj['Longitude']);
+                
+                if (!validateCoordinates(lat, lng)) {
+                    invalidRows.push(index + 2);
+                    return;
+                }
+                
+                obj['_lat'] = lat;
+                obj['_lng'] = lng;
+                obj['_rowIndex'] = index;
+                
+                processedData.push(obj);
+                validRows++;
+                
+            } catch (rowError) {
+                console.warn(`Error processing row ${index + 2}:`, rowError);
+                invalidRows.push(index + 2);
             }
         });
         
+        if (validRows === 0) {
+            throw new Error('No valid data rows found');
+        }
+        
+        state.allData = processedData;
+        state.markerLookup.clear();
+        state.coordinateLookup.clear();
+        
+        let message = `Loaded ${validRows} locations`;
+        if (invalidRows.length > 0) {
+            const showRows = invalidRows.slice(0, 5);
+            const moreText = invalidRows.length > 5 ? ` and ${invalidRows.length - 5} more` : '';
+            message += ` (Invalid rows: ${showRows.join(', ')}${moreText})`;
+        }
+        showNotification(message, 'success');
+        
+        assignDriverColors();
+        updateDriverNamesList();  // Update autocomplete list
+        updateMap();
+        
     } catch (error) {
-        console.error('Error loading data:', error);
-        showNotification(`Error loading data: ${error.message}`, 'error');
+        console.error('Data loading error:', error);
+        showNotification('Error loading data: ' + error.message, 'error');
+        
+        state.allData = [];
+        state.markers = [];
+        state.filteredData = [];
+        state.markerLookup.clear();
+        state.coordinateLookup.clear();
     }
 }
 
 // ==================== MAP UPDATE ====================
 function updateMap() {
-    if (!state.map) {
-        console.warn('Map not initialized yet');
-        return;
-    }
-    
-    console.log('Updating map...');
-    
-    state.markers.forEach(markerData => {
-        if (markerData && markerData.marker && state.map.hasLayer(markerData.marker)) {
-            state.map.removeLayer(markerData.marker);
-        }
-    });
-    state.markers = [];
-    
-    state.markerLookup.clear();
-    state.coordinateLookup.clear();
-    
-    Object.values(state.layerGroups).forEach(group => {
-        if (group) group.clearLayers();
-    });
-    
-    const searchValue = document.getElementById('searchInput')?.value.toLowerCase() || '';
-    
-    state.filteredData = state.allData.filter(row => {
-        if (!row) return false;
+    try {
+        console.log('UpdateMap called - using legend counts for tooltips');
         
-        if (searchValue) {
-            const dogName = (row['Dog Name'] || '').toLowerCase();
-            const address = (row['Address'] || '').toLowerCase();
-            const driver = (row['Driver'] || '').toLowerCase();
-            const searchMatch = dogName.includes(searchValue) || 
-                              address.includes(searchValue) ||
-                              driver.includes(searchValue);
-            
-            if (!searchMatch) return false;
-        }
+        updateLegend();
+        console.log('Driver counts after legend update:', state.driverCounts);
         
-        if (state.activeDriver) {
-            if (row['Driver'] !== state.activeDriver) return false;
-        }
-        
-        if (state.activeGroupFilters.size > 0) {
-            const groups = parseGroup(row['Group']);
-            const hasMatchingGroup = groups.some(g => state.activeGroupFilters.has(g));
-            if (!hasMatchingGroup) return false;
-        }
-        
-        return true;
-    });
-    
-    const groupCounts = { 1: 0, 2: 0, 3: 0 };
-    
-    state.filteredData.forEach((row, index) => {
-        const lat = parseFloat(row['Lat']);
-        const lng = parseFloat(row['Long']);
-        const dogName = row['Dog Name'] || 'Unknown';
-        const dogId = row['Id'] || `${dogName}-${index}`;
-        
-        if (!isNaN(lat) && !isNaN(lng)) {
-            const groups = parseGroup(row['Group']);
-            
-            if (groups.length === 0) {
-                console.warn(`No valid group for dog: ${dogName}`);
-                return;
-            }
-            
-            const primaryGroup = groups[0];
-            const color = state.driverColors[row['Driver']] || '#808080';
-            
-            const coordKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-            if (!state.coordinateLookup.has(coordKey)) {
-                state.coordinateLookup.set(coordKey, []);
-            }
-            state.coordinateLookup.get(coordKey).push(dogId);
-            
-            const isSelected = state.selectedMarkers.has(dogId);
-            const isActiveDriver = state.activeDriver && row['Driver'] === state.activeDriver;
-            const marker = L.marker([lat, lng], {
-                icon: createIcon(color, isSelected, isActiveDriver)
-            });
-            
-            const popupContent = `
-                <div style="min-width: 200px;">
-                    <strong>${dogName}</strong><br>
-                    ${row['Address'] || 'No address'}<br>
-                    Driver: ${row['Driver'] || 'Unassigned'}<br>
-                    Group: ${row['Group'] || 'None'}<br>
-                    ${row['Comments'] ? `<br><em>${row['Comments']}</em>` : ''}
-                </div>
-            `;
-            
-            marker.bindPopup(popupContent);
-            
-            marker.bindTooltip(dogName, {
-                permanent: false,
-                direction: 'top',
-                offset: [0, -10]
-            });
-            
-            marker.on('click', () => {
-                if (state.selectionMode) {
-                    toggleMarkerSelection(dogId, marker, row);
-                } else {
-                    selectMarker(marker, row, index, primaryGroup);
+        state.markers.forEach(m => {
+            if (m && m.marker) {
+                try {
+                    const getMethod = 'get' + 'Tooltip';
+                    const unbindMethod = 'unbind' + 'Tooltip';
+                    
+                    if (m.marker[getMethod] && typeof m.marker[getMethod] === 'function') {
+                        const tooltip = m.marker[getMethod]();
+                        if (tooltip && m.marker[unbindMethod]) {
+                            m.marker[unbindMethod]();
+                        }
+                    }
+                    
+                    m.marker.off();
+                    if (state.map.hasLayer(m.marker)) {
+                        state.map.removeLayer(m.marker);
+                    }
+                } catch (e) {
+                    console.warn('Error removing marker:', e);
                 }
-            });
-            
-            if (state.layerGroups[primaryGroup]) {
-                marker.addTo(state.layerGroups[primaryGroup]);
-            } else {
-                console.warn(`No layer group for group ${primaryGroup}`);
-            }
-            
-            const markerData = { 
-                marker, 
-                row, 
-                dogId,
-                group: primaryGroup
-            };
-            state.markers.push(markerData);
-            state.markerLookup.set(dogId, markerData);
-            
-            groupCounts[primaryGroup]++;
-        }
-    });
-    
-    console.log('Group counts:', groupCounts);
-    console.log(`Map updated with ${state.markers.length} markers`);
-}
-
-// ==================== MARKER SELECTION ====================
-function selectMarker(marker, row, index, group) {
-    state.selectedMarker = marker;
-    state.selectedRow = row;
-    
-    const detailsContent = document.getElementById('detailsContent');
-    if (!detailsContent) return;
-    
-    const saveId = `save-${row['Id'] || index}`;
-    const inputId = `driver-${row['Id'] || index}`;
-    
-    detailsContent.innerHTML = `
-        <div class="dog-details">
-            <div class="detail-row">
-                <span class="detail-label">Name:</span>
-                <span class="detail-value">${row['Dog Name'] || 'Unknown'}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Address:</span>
-                <span class="detail-value">${row['Address'] || 'No address'}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Group:</span>
-                <span class="detail-value">${row['Group'] || 'None'}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Driver:</span>
-                <div class="detail-value edit-driver-container">
-                    <input type="text" 
-                           id="${inputId}" 
-                           class="edit-driver-input" 
-                           value="${row['Driver'] || ''}" 
-                           placeholder="Enter driver name"
-                           list="driverSuggestions">
-                </div>
-            </div>
-            ${row['Comments'] ? `
-            <div class="detail-row">
-                <span class="detail-label">Comments:</span>
-                <span class="detail-value">${row['Comments']}</span>
-            </div>
-            ` : ''}
-            <div class="edit-actions">
-                <button id="${saveId}" class="save-btn" onclick="saveDriverName()">💾 Save</button>
-                <button class="cancel-btn" onclick="cancelEdit()">Cancel</button>
-            </div>
-        </div>
-        <datalist id="driverSuggestions">
-            ${Object.keys(state.driverColors).map(driver => 
-                `<option value="${driver}">`
-            ).join('')}
-        </datalist>
-    `;
-    
-    const driverInput = document.getElementById(inputId);
-    if (driverInput) {
-        driverInput.focus();
-        driverInput.select();
-        
-        driverInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                saveDriverName();
             }
         });
-    }
-}
+        state.markers = [];
+        state.coordinateLookup.clear();
 
-function toggleMarkerSelection(dogId, marker, row) {
-    if (state.selectedMarkers.has(dogId)) {
-        state.selectedMarkers.delete(dogId);
-    } else {
-        state.selectedMarkers.add(dogId);
-    }
-    
-    updateSelectionUI();
-    
-    const color = state.driverColors[row['Driver']] || '#808080';
-    const isSelected = state.selectedMarkers.has(dogId);
-    marker.setIcon(createIcon(color, isSelected));
-}
+        const searchInput = document.getElementById('searchInput');
+        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
 
-function updateSelectionUI() {
-    const count = state.selectedMarkers.size;
-    const selectedCount = document.getElementById('selectedCount');
-    const clearBtn = document.getElementById('clearSelectionBtn');
-    
-    if (selectedCount) {
-        selectedCount.textContent = `${count} selected`;
-    }
-    
-    if (clearBtn) {
-        clearBtn.style.display = count > 0 ? 'inline-block' : 'none';
+        if (!state.allData || state.allData.length === 0) {
+            updateLegend();
+            return;
+        }
+
+        state.filteredData = state.allData.filter(row => {
+            if (!row) return false;
+            
+            if (searchTerm) {
+                const searchFields = [
+                    row['Dog Name'],
+                    row['Address'],
+                    row['Driver'],
+                    row['Combined'],
+                    row['Callout'],
+                    row['Dog ID']
+                ].filter(Boolean).join(' ').toLowerCase();
+                
+                if (!searchFields.includes(searchTerm)) {
+                    return false;
+                }
+            }
+            
+            const group = parseGroup(row['Group']);
+            if (group !== null) {
+                if (typeof group === 'string' && group.length > 1) {
+                    const hasActiveGroup = group.split('').some(g => state.activeGroups.includes(parseInt(g)));
+                    if (!hasActiveGroup) {
+                        return false;
+                    }
+                } else if (typeof group === 'number') {
+                    if (!state.activeGroups.includes(group)) {
+                        return false;
+                    }
+                }
+            } else {
+                if (state.activeGroups.length < 3) {
+                    return false;
+                }
+            }
+            
+            if (state.currentFilter !== null) {
+                const rowDriver = row['Driver'] || row['Combined'] || '';
+                if (rowDriver !== state.currentFilter) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+
+        state.colorMap = {};
+        state.allData.forEach(row => {
+            if (row && (row['Driver'] || row['Combined'])) {
+                const driver = row['Driver'] || row['Combined'] || '';
+                if (driver) {
+                    state.colorMap[driver] = getDriverColor(driver);
+                }
+            }
+        });
+
+        state.filteredData.forEach(row => {
+            if (!row) return;
+            
+            try {
+                const lat = row['_lat'] ?? parseFloat(row['Latitude']);
+                const lng = row['_lng'] ?? parseFloat(row['Longitude']);
+                
+                if (!validateCoordinates(lat, lng)) return;
+                
+                const coordKey = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+                const existingCount = state.coordinateLookup.get(coordKey) || 0;
+                state.coordinateLookup.set(coordKey, existingCount + 1);
+                
+                const offsetLat = existingCount > 0 ? lat + (existingCount * 0.00001) : lat;
+                const offsetLng = existingCount > 0 ? lng + (existingCount * 0.00001) : lng;
+
+                const driver = row['Driver'] || row['Combined'] || '';
+                let color = state.colorMap[driver] || '#999999';
+                
+                if (driver.toLowerCase().includes('unassigned')) {
+                    color = '#000000';
+                }
+                
+                const group = parseGroup(row['Group']);
+                const dogId = getDogId(row);
+                const isInSelection = dogId && state.selectedMarkers.has(dogId);
+                const hasCallout = row['Callout'] && row['Callout'].trim();
+                
+                const driverDisplay = driver || 'No Driver';
+                const groupDisplay = row['Group'] || '?';
+                const dogNameDisplay = row['Dog Name'] || 'Unknown';
+                const notesValue = row['Notes'] || '';
+                
+                let tooltipHtml = `<div style="text-align: center;"><strong>${escapeHtml(driverDisplay)}:${escapeHtml(groupDisplay)}</strong>`;
+                
+                if (driver && state.driverCounts && state.driverCounts[driver]) {
+                    const counts = state.driverCounts[driver];
+                    const total = counts[1] + counts[2] + counts[3];
+                    if (total > 0) {
+                        tooltipHtml += `  <span style="color: #ff6b6b; font-weight: bold;">(${counts[1]}, ${counts[2]}, ${counts[3]})</span>`;
+                    }
+                    if (state.markers.length < 3) {
+                        console.log(`Tooltip for ${driver}: (${counts[1]}, ${counts[2]}, ${counts[3]})`);
+                    }
+                }
+                
+                tooltipHtml += `<br/>${escapeHtml(dogNameDisplay)}`;
+                
+                if (notesValue && notesValue.toString().trim() !== '') {
+                    tooltipHtml += `<br/><span style="font-style: italic; color: white;">${escapeHtml(notesValue)}</span>`;
+                }
+                
+                tooltipHtml += `</div>`;
+                
+                const marker = L.marker([offsetLat, offsetLng], {
+                    icon: createMarkerIcon(color, false, 'group', group, isInSelection, row['Dog Name'], hasCallout),
+                    riseOnHover: true
+                });
+
+                marker.addTo(state.map);
+                
+                const tooltipMethod = 'bind' + 'Tooltip';
+                if (typeof marker[tooltipMethod] === 'function') {
+                    marker[tooltipMethod](tooltipHtml, {
+                        permanent: false,
+                        direction: 'top',
+                        offset: [0, -15],
+                        className: 'custom-tooltip',
+                        opacity: 0.95
+                    });
+                } else {
+                    console.error('Method ' + tooltipMethod + ' not found on marker');
+                }
+
+                marker._rowData = row;
+                
+                const markerData = {marker, row, index: row['_rowIndex'] ?? state.allData.indexOf(row), group};
+                
+                if (dogId) {
+                    state.markerLookup.set(dogId, markerData);
+                }
+                
+                marker.on('click', function(e) {
+                    try {
+                        if (state.selectionMode) {
+                            e.originalEvent.stopPropagation();
+                            const dogId = getDogId(row);
+                            if (!dogId) return;
+                            
+                            if (state.selectedMarkers.has(dogId)) {
+                                state.selectedMarkers.delete(dogId);
+                            } else if (state.selectedMarkers.size < CONFIG.MAX_SELECTION) {
+                                state.selectedMarkers.add(dogId);
+                            } else {
+                                showNotification(`Maximum ${CONFIG.MAX_SELECTION} markers can be selected`, 'error');
+                                return;
+                            }
+                            
+                            updateSelectedMarkersDisplay();
+                            updateBulkEditPanel();
+                        } else {
+                            const validIndex = row['_rowIndex'] ?? state.allData.indexOf(row);
+                            selectMarker(marker, row, validIndex, group);
+                        }
+                    } catch (clickError) {
+                        console.error('Error handling marker click:', clickError);
+                        showNotification('Error handling marker click', 'error');
+                    }
+                });
+
+                state.markers.push(markerData);
+                
+            } catch (markerError) {
+                console.warn('Error creating marker:', markerError);
+            }
+        });
+
+        if (state.markers.length > 0 && state.markers.length < 100) {
+            const group = L.featureGroup(state.markers.map(m => m.marker));
+            state.map.fitBounds(group.getBounds().pad(0.1));
+        }
+        
+    } catch (error) {
+        console.error('Error in updateMap:', error);
+        showNotification('Error updating map display', 'error');
     }
 }
 
@@ -1211,223 +1701,771 @@ function toggleSelectionMode() {
     state.selectionMode = !state.selectionMode;
     
     const btn = document.getElementById('selectionModeBtn');
-    const bulkSection = document.getElementById('bulkUpdateSection');
+    const clearBtn = document.getElementById('clearSelectionBtn');
     
-    if (btn) {
-        btn.classList.toggle('active', state.selectionMode);
-        btn.textContent = state.selectionMode ? '✓ Selection Mode' : '📍 Selection Mode';
-    }
+    if (!btn || !clearBtn) return;
     
-    if (bulkSection) {
-        bulkSection.style.display = state.selectionMode ? 'block' : 'none';
-        if (state.selectionMode) {
-            bulkSection.classList.add('active');
-        } else {
-            bulkSection.classList.remove('active');
-        }
-    }
-    
-    if (!state.selectionMode) {
+    if (state.selectionMode) {
+        btn.textContent = '🎯 Exit Select Mode';
+        btn.classList.add('selection-mode-active');
+        clearBtn.style.display = 'inline-block';
+        
+        enableDrawingTools();
+        showNotification('Draw a polygon around markers to select them', 'info');
+    } else {
+        btn.textContent = '🎯 Select Mode';
+        btn.classList.remove('selection-mode-active');
+        clearBtn.style.display = 'none';
+        
+        disableDrawingTools();
         clearSelection();
     }
+}
+
+function enableDrawingTools() {
+    if (!state.map || !L.Control.Draw) {
+        console.error('Leaflet.draw library not loaded');
+        return;
+    }
     
-    updateSelectionUI();
+    try {
+        if (!state.drawnItems) {
+            state.drawnItems = new L.FeatureGroup();
+            state.map.addLayer(state.drawnItems);
+        }
+
+        if (!state.drawControl) {
+            state.drawControl = new L.Control.Draw({
+                position: 'topleft',
+                edit: {
+                    featureGroup: state.drawnItems,
+                    remove: true,
+                    edit: true
+                },
+                draw: {
+                    polygon: {
+                        allowIntersection: false,
+                        drawError: {
+                            color: '#e1e100',
+                            message: '<strong>Error!</strong> Shape intersects itself!'
+                        },
+                        shapeOptions: {
+                            color: '#007bff',
+                            fillColor: '#007bff',
+                            fillOpacity: 0.2,
+                            weight: 3
+                        },
+                        showArea: true
+                    },
+                    rectangle: {
+                        shapeOptions: {
+                            color: '#007bff',
+                            fillColor: '#007bff',
+                            fillOpacity: 0.2,
+                            weight: 3
+                        }
+                    },
+                    circle: false,
+                    marker: false,
+                    circlemarker: false,
+                    polyline: false
+                }
+            });
+            
+            state.map.addControl(state.drawControl);
+        }
+
+        state.map.off('draw:created').on('draw:created', onDrawCreated);
+        state.map.off('draw:deleted').on('draw:deleted', onDrawDeleted);
+        state.map.off('draw:edited').on('draw:edited', onDrawEdited);
+        
+    } catch (error) {
+        console.error('Error enabling drawing tools:', error);
+    }
+}
+
+function disableDrawingTools() {
+    try {
+        if (state.map) {
+            state.map.off('draw:created');
+            state.map.off('draw:deleted');
+            state.map.off('draw:edited');
+        }
+
+        if (state.drawControl && state.map && state.map.hasLayer(state.drawControl)) {
+            state.map.removeControl(state.drawControl);
+        }
+        state.drawControl = null;
+
+        if (state.drawnItems) {
+            state.drawnItems.clearLayers();
+            if (state.map && state.map.hasLayer(state.drawnItems)) {
+                state.map.removeLayer(state.drawnItems);
+            }
+        }
+        state.drawnItems = null;
+
+    } catch (error) {
+        console.error('Error disabling drawing tools:', error);
+    }
+}
+
+function onDrawCreated(e) {
+    if (!state.selectionMode || !state.drawnItems) return;
+    
+    const layer = e.layer;
+    if (!layer) return;
+    
+    try {
+        state.drawnItems.addLayer(layer);
+        
+        selectMarkersInPolygonAdditive(layer);
+        updateSelectedMarkersDisplay();
+        updateBulkEditPanel();
+        
+        const shapeCount = state.drawnItems.getLayers().length;
+        if (shapeCount > 10) {
+            showNotification('Maximum 10 selection areas allowed', 'error');
+            const layers = state.drawnItems.getLayers();
+            if (layers.length > 0) {
+                state.drawnItems.removeLayer(layers[0]);
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error in onDrawCreated:', error);
+    }
+}
+
+function onDrawDeleted(e) {
+    if (!state.selectionMode || !state.drawnItems) return;
+    
+    try {
+        state.selectedMarkers.clear();
+        
+        state.drawnItems.eachLayer(function(layer) {
+            if (layer) {
+                selectMarkersInPolygonAdditive(layer);
+            }
+        });
+        
+        updateSelectedMarkersDisplay();
+        updateBulkEditPanel();
+    } catch (error) {
+        console.error('Error in onDrawDeleted:', error);
+    }
+}
+
+function onDrawEdited(e) {
+    if (!state.selectionMode || !state.drawnItems) return;
+    
+    try {
+        state.selectedMarkers.clear();
+        
+        state.drawnItems.eachLayer(function(layer) {
+            if (layer) {
+                selectMarkersInPolygonAdditive(layer);
+            }
+        });
+        
+        updateSelectedMarkersDisplay();
+        updateBulkEditPanel();
+    } catch (error) {
+        console.error('Error in onDrawEdited:', error);
+    }
+}
+
+function selectMarkersInPolygonAdditive(polygon) {
+    if (!state.selectionMode || !state.markers || state.markers.length === 0) return;
+    
+    const bounds = polygon.getBounds();
+    
+    state.markers.forEach(markerData => {
+        if (!markerData || !markerData.marker || !markerData.row) return;
+        
+        const latLng = markerData.marker.getLatLng();
+        if (!latLng) return;
+        
+        if (!bounds.contains(latLng)) return;
+        
+        let isInside = false;
+        try {
+            if (polygon instanceof L.Polygon || polygon instanceof L.Rectangle) {
+                const latlngs = polygon.getLatLngs();
+                if (latlngs && latlngs.length > 0) {
+                    const outerRing = Array.isArray(latlngs[0]) ? latlngs[0] : latlngs;
+                    if (outerRing && outerRing.length >= 3) {
+                        isInside = isPointInPolygon(latLng, outerRing);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error checking polygon intersection:', error);
+            return;
+        }
+        
+        if (isInside) {
+            const dogId = getDogId(markerData.row);
+            if (dogId && state.selectedMarkers.size < CONFIG.MAX_SELECTION) {
+                state.selectedMarkers.add(dogId);
+            }
+        }
+    });
+}
+
+function updateSelectedMarkersDisplay() {
+    if (!state.markers || state.markers.length === 0) return;
+    
+    state.markers.forEach(markerData => {
+        if (!markerData || !markerData.marker || !markerData.row) return;
+        
+        try {
+            const dogId = getDogId(markerData.row);
+            const isInSelection = dogId && state.selectedMarkers.has(dogId);
+            const isSelected = state.selectedMarker === markerData.marker;
+            
+            const driver = markerData.row['Driver'] || markerData.row['Combined'] || '';
+            let color = state.colorMap[driver] || '#999999';
+            
+            if (driver.toLowerCase().includes('unassigned')) {
+                color = '#000000';
+            }
+            
+            const newIcon = createMarkerIcon(color, isSelected, 'group', markerData.group, isInSelection, markerData.row['Dog Name'], markerData.row['Callout'] && markerData.row['Callout'].trim());
+            markerData.marker.setIcon(newIcon);
+        } catch (error) {
+            console.error('Error updating marker display:', error);
+        }
+    });
+    
+    if (state.selectionMode) {
+        showNotification(`Selected ${state.selectedMarkers.size} markers`, 'info', 1000);
+    }
+}
+
+function updateBulkEditPanel() {
+    const panel = document.getElementById('bulkEditPanel');
+    if (!panel) return;
+    
+    if (state.selectedMarkers.size === 0) {
+        panel.style.display = 'none';
+        return;
+    }
+    
+    panel.style.display = 'block';
+    
+    try {
+        updateDriverNamesList();
+        
+        const selectedRows = [];
+        for (const dogId of state.selectedMarkers) {
+            const markerData = state.markerLookup.get(dogId);
+            if (markerData && markerData.row) {
+                selectedRows.push(markerData.row);
+            }
+        }
+        
+        const previewHtml = selectedRows.slice(0, 10).map(row => {
+            const dogName = escapeHtml(row['Dog Name'] || 'Unknown');
+            const driver = escapeHtml(row['Driver'] || row['Combined'] || 'No Driver');
+            return `<div class="selected-dog-item">${dogName} - ${driver}</div>`;
+        }).join('');
+        
+        const moreText = selectedRows.length > 10 ? 
+            `<div class="selected-dog-item">... and ${selectedRows.length - 10} more</div>` : '';
+        
+        panel.innerHTML = `
+            <div class="bulk-edit-panel">
+                <div class="bulk-edit-header">
+                    <h4>🎯 Bulk Edit Selection</h4>
+                    <span class="selected-count">${state.selectedMarkers.size} selected</span>
+                </div>
+                <div class="selected-dogs-preview">
+                    ${previewHtml}
+                    ${moreText}
+                </div>
+                <div class="bulk-edit-controls">
+                    <div class="autocomplete-container" style="flex: 1; min-width: 150px;">
+                        <input type="text" 
+                               id="bulkDriverHint" 
+                               class="autocomplete-hint"
+                               style="padding: 8px; border: 2px solid #e1e5e9; border-radius: 4px; font-size: 14px;"
+                               readonly
+                               tabindex="-1">
+                        <input type="text" 
+                               id="bulkDriverInput" 
+                               class="autocomplete-input" 
+                               placeholder="New driver name"
+                               style="padding: 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 14px; background: transparent;"
+                               autocomplete="off" />
+                    </div>
+                    <button class="btn btn-primary" onclick="bulkUpdateSelected()" 
+                            id="bulkUpdateBtn">💾 Update All</button>
+                    <button class="btn btn-secondary" onclick="clearSelection()">✖️ Cancel</button>
+                </div>
+            </div>
+        `;
+        
+        setTimeout(() => {
+            const input = document.getElementById('bulkDriverInput');
+            const hint = document.getElementById('bulkDriverHint');
+            if (input) {
+                setupAutocomplete(input, hint);
+                input.focus();
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error updating bulk edit panel:', error);
+        panel.innerHTML = '<div class="error-message">Error loading selection panel</div>';
+    }
 }
 
 function clearSelection() {
     state.selectedMarkers.clear();
-    updateSelectionUI();
+    updateSelectedMarkersDisplay();
+    updateBulkEditPanel();
+    
+    if (state.drawnItems) {
+        state.drawnItems.clearLayers();
+    }
+    
+    if (state.selectionMode) {
+        showNotification('Selection cleared', 'info', 1000);
+    }
+}
+
+// ==================== MARKER SELECTION ====================
+function selectMarker(marker, row, index, group) {
+    if (!marker || !row || !state.map) {
+        console.error('Invalid parameters for selectMarker');
+        return;
+    }
+    
+    try {
+        if (state.selectedMarker && state.selectedMarker !== marker) {
+            const prevData = state.markers.find(m => m && m.marker === state.selectedMarker);
+            if (prevData) {
+                try {
+                    const driver = prevData.row['Driver'] || prevData.row['Combined'] || '';
+                    let color = state.colorMap[driver] || '#999999';
+                    
+                    if (driver.toLowerCase().includes('unassigned')) {
+                        color = '#000000';
+                    }
+                    
+                    const dogId = getDogId(prevData.row);
+                    const isInSelection = dogId && state.selectedMarkers.has(dogId);
+                    state.selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group, isInSelection, prevData.row['Dog Name'], prevData.row['Callout'] && prevData.row['Callout'].trim()));
+                } catch (clearError) {
+                    console.warn('Error clearing previous marker:', clearError);
+                }
+            }
+        }
+
+        state.selectedMarker = marker;
+        state.selectedRow = row;
+        
+        try {
+            const driver = row['Driver'] || row['Combined'] || '';
+            let color = state.colorMap[driver] || '#999999';
+            
+            if (driver.toLowerCase().includes('unassigned')) {
+                color = '#000000';
+            }
+            
+            const dogId = getDogId(row);
+            const isInSelection = dogId && state.selectedMarkers.has(dogId);
+            marker.setIcon(createMarkerIcon(color, true, 'group', group, isInSelection, row['Dog Name'], row['Callout'] && row['Callout'].trim()));
+        } catch (iconError) {
+            console.warn('Error updating marker icon:', iconError);
+        }
+
+        updateDetailsPanel(row, index);
+        
+    } catch (error) {
+        console.error('Error in selectMarker:', error);
+        showNotification('Error selecting marker', 'error');
+    }
+}
+
+function updateDetailsPanel(row, index) {
+    const detailsContent = document.getElementById('detailsContent');
+    if (!detailsContent) return;
+    
+    try {
+        updateDriverNamesList();
+        
+        const actualIndex = row['_rowIndex'] ?? state.allData.indexOf(row);
+        const driverName = row['Driver'] || '';
+        const dogName = row['Dog Name'] || 'Unknown';
+        const group = parseGroup(row['Group']);
+        const groupText = row['Group'] || '';
+        const address = row['Address'] || '';
+        const capacity = row['Capacity'] || '';
+        const callout = row['Callout'] || '';
+        const dogId = row['Dog ID'] || '';
+        
+        let infoHtml = '';
+        
+        infoHtml += `<div style="font-weight: bold; color: #333; margin-bottom: 8px; font-size: 14px; text-align: center; padding: 6px 8px; background: #f8f9fa; border-radius: 4px;">
+            ${escapeHtml(dogName)}
+        </div>`;
+        
+        infoHtml += `<div style="text-align: center; margin-bottom: 6px; font-size: 16px; font-weight: bold; color: #333;">
+            Group ${escapeHtml(groupText || '?')}
+        </div>`;
+        
+        if (dogId) {
+            infoHtml += `<div style="margin-bottom: 6px; font-size: 11px; color: #999; text-align: center;">
+                ID: ${escapeHtml(dogId)}
+            </div>`;
+        }
+        
+        if (address) {
+            infoHtml += `<div style="margin-bottom: 6px; font-size: 12px; color: #666;">
+                ${escapeHtml(address)}
+            </div>`;
+        }
+        
+        if (capacity) {
+            infoHtml += `<div style="margin-bottom: 6px; font-size: 12px; color: #666;">
+                <strong>Capacity:</strong> ${escapeHtml(capacity)}
+            </div>`;
+        }
+        
+        if (callout) {
+            infoHtml += `<div style="background: #fff3cd; padding: 6px; border-radius: 4px; margin-bottom: 6px;">
+                <strong style="color: #856404;">CALLOUT:</strong> 
+                <span style="color: #856404;">${escapeHtml(callout)}</span>
+            </div>`;
+        }
+        
+        const detailsHtml = `
+            ${infoHtml}
+            
+            <div style="border-top: 1px solid #dee2e6; padding-top: 8px; margin-top: 8px;">
+                <label style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">Driver:</label>
+                <div style="margin-bottom: 8px;" class="autocomplete-container">
+                    <input type="text" 
+                           id="editDriverHint" 
+                           class="autocomplete-hint"
+                           style="width: 100%; padding: 6px 8px; border: 2px solid #e1e5e9; border-radius: 4px; font-size: 13px;"
+                           readonly
+                           tabindex="-1">
+                    <input type="text" 
+                           id="editDriver" 
+                           value="${escapeHtml(driverName)}" 
+                           placeholder="Enter driver name"
+                           class="autocomplete-input"
+                           style="width: 100%; padding: 6px 8px; border: 2px solid #ddd; border-radius: 4px; font-size: 13px; background: transparent;"
+                           autocomplete="off">
+                </div>
+                
+                <label style="font-size: 12px; color: #666; font-weight: 600; display: block; margin-bottom: 4px;">Group:</label>
+                <div style="margin-bottom: 8px;">
+                    <input type="text" id="editGroup" value="${escapeHtml(groupText)}" 
+                           placeholder="1, 2, 3, 1&2, 1DD1, 2SUB2, etc."
+                           title="Supports business codes: DD, SUB, Trial, AA, F, Trial, XX (e.g., 1DD1, 2F2, 1SUB&2)"
+                           style="width: 100%; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;"
+                           autocomplete="off">
+                </div>
+                
+                <div style="display: flex; gap: 4px;">
+                    <button class="btn btn-primary" onclick="saveMarkerData()" 
+                            id="saveBtn" style="flex: 1; padding: 6px 8px; font-size: 12px;">
+                        💾 Save
+                    </button>
+                    <button class="btn btn-secondary" onclick="cancelEdit()" 
+                            style="flex: 1; padding: 6px 8px; font-size: 12px;">
+                        ✖️ Cancel
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        detailsContent.innerHTML = detailsHtml;
+        
+        setTimeout(() => {
+            const driverInput = document.getElementById('editDriver');
+            const driverHint = document.getElementById('editDriverHint');
+            const groupInput = document.getElementById('editGroup');
+            
+            if (driverInput) {
+                setupAutocomplete(driverInput, driverHint);
+                
+                driverInput.focus();
+                driverInput.select();
+                
+                driverInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveMarkerData();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelEdit();
+                    }
+                });
+            }
+            
+            if (groupInput) {
+                groupInput.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        saveMarkerData();
+                    } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelEdit();
+                    }
+                });
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error updating details panel:', error);
+        detailsContent.innerHTML = '<div class="error-message">Error showing details</div>';
+    }
+}
+
+// ==================== LEGEND ====================
+function updateLegend() {
+    const legendContent = document.getElementById('legendContent');
+    if (!legendContent) return;
+    
+    try {
+        const sortedEntries = Object.entries(state.colorMap).sort(([a], [b]) => a.localeCompare(b));
+        const legendItems = [];
+        
+        state.driverCounts = {};
+        
+        sortedEntries.forEach(([key, color]) => {
+            if (!key || !color) return;
+            
+            const isActive = state.currentFilter === key;
+            let displayText = escapeHtml(key);
+            
+            if (state.allData && state.allData.length > 0) {
+                const groupCounts = { 1: 0, 2: 0, 3: 0 };
+                
+                state.allData.forEach(row => {
+                    if (!row) return;
+                    const rowDriver = row['Driver'] || row['Combined'] || '';
+                    if (rowDriver !== key) return;
+                    
+                    const dogCount = parseInt(row['Number of Dogs'] || '1') || 1;
+                    const group = parseGroup(row['Group']);
+                    
+                    if (group !== null) {
+                        if (typeof group === 'string' && group.length > 1) {
+                            group.split('').forEach(g => {
+                                const groupNum = parseInt(g);
+                                if (groupNum >= 1 && groupNum <= 3) {
+                                    groupCounts[groupNum] += dogCount;
+                                }
+                            });
+                        } else if (typeof group === 'number' && group >= 1 && group <= 3) {
+                            groupCounts[group] += dogCount;
+                        }
+                    }
+                });
+                
+                state.driverCounts[key] = groupCounts;
+                
+                const total = groupCounts[1] + groupCounts[2] + groupCounts[3];
+                if (total > 0) {
+                    displayText += ` (${groupCounts[1]}, ${groupCounts[2]}, ${groupCounts[3]})`;
+                }
+            }
+            
+            const dataKey = escapeHtml(key);
+            const safeKey = key.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\\/g, '\\\\');
+            
+            legendItems.push(`
+                <div class="legend-item ${isActive ? 'active' : ''}" 
+                     onclick="filterByCategory('${safeKey}')"
+                     role="button"
+                     tabindex="0"
+                     aria-label="Filter by ${dataKey}"
+                     aria-pressed="${isActive}">
+                    <div class="legend-color" style="background-color: ${color}"></div>
+                    <span class="legend-text">${displayText}</span>
+                    <input type="color" class="color-picker" value="${color}" 
+                           data-category="${dataKey}"
+                           aria-label="Change color for ${dataKey}"
+                           onclick="event.stopPropagation()" />
+                </div>
+            `);
+        });
+        
+        legendContent.innerHTML = legendItems.join('') || '<div class="no-selection">No drivers found</div>';
+        
+        const pickers = legendContent.querySelectorAll('.color-picker');
+        pickers.forEach(picker => {
+            picker.addEventListener('change', function(e) {
+                e.stopPropagation();
+                const categoryName = this.getAttribute('data-category');
+                if (categoryName) {
+                    changeCustomColor(categoryName, this.value);
+                }
+            });
+            picker.addEventListener('click', e => e.stopPropagation());
+        });
+        
+    } catch (error) {
+        console.error('Error updating legend:', error);
+        legendContent.innerHTML = '<div class="error-message">Error loading legend</div>';
+    }
+}
+
+// ==================== EVENT HANDLERS ====================
+function toggleGroupFilter(group) {
+    const btn = document.getElementById(`group${group}Btn`);
+    if (!btn) return;
+    
+    const index = state.activeGroups.indexOf(group);
+    
+    if (index > -1) {
+        if (state.activeGroups.length > 1) {
+            state.activeGroups.splice(index, 1);
+            btn.classList.remove('active');
+            btn.setAttribute('aria-pressed', 'false');
+        } else {
+            showNotification('At least one group must remain active', 'error');
+            return;
+        }
+    } else {
+        state.activeGroups.push(group);
+        state.activeGroups.sort();
+        btn.classList.add('active');
+        btn.setAttribute('aria-pressed', 'true');
+    }
+    
     updateMap();
 }
 
-// ==================== FILTERING ====================
-function toggleGroupFilter(group) {
-    if (state.activeGroupFilters.has(group)) {
-        state.activeGroupFilters.delete(group);
-    } else {
-        state.activeGroupFilters.add(group);
-    }
-    
-    const btn = document.getElementById(`group${group}Btn`);
-    if (btn) {
-        btn.classList.toggle('active', state.activeGroupFilters.has(group));
-    }
-    
+function filterByCategory(category) {
+    state.currentFilter = state.currentFilter === category ? null : category;
     updateMap();
+    
+    if (state.currentFilter) {
+        showNotification(`Filtering by: ${category}`, 'info', 2000);
+    } else {
+        showNotification('Filter cleared', 'info', 2000);
+    }
 }
 
 function clearFilter() {
-    state.activeGroupFilters.clear();
-    state.activeDriver = null;
-    
-    document.querySelectorAll('.group-filter-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-    
-    document.querySelectorAll('.legend-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    
+    state.currentFilter = null;
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) searchInput.value = '';
     updateMap();
+    showNotification('All filters cleared', 'info', 2000);
 }
 
-function filterByCategory(category, value) {
-    if (category === 'Driver') {
-        if (state.activeDriver === value) {
-            state.activeDriver = null;
-        } else {
-            state.activeDriver = value;
-        }
-        updateMap();
+function resetColors() {
+    if (Object.keys(state.customColors).length === 0) {
+        showNotification('No custom colors to reset', 'info');
+        return;
     }
+    
+    console.log('Resetting all custom colors');
+    state.customColors = {};
+    assignDriverColors();
+    updateMap();
+    showNotification('All custom colors reset', 'success');
 }
 
-// ==================== PANEL TOGGLE ====================
 function togglePanel() {
     const panel = document.getElementById('leftPanel');
     const toggle = document.getElementById('panelToggle');
+    const icon = document.getElementById('panelToggleIcon');
     
-    if (panel) {
+    if (panel && toggle && icon) {
         panel.classList.toggle('open');
-        if (toggle) {
-            toggle.textContent = panel.classList.contains('open') ? '◀' : '▶';
-        }
+        icon.textContent = panel.classList.contains('open') ? '▶' : '◀';
     }
 }
 
-// ==================== GOOGLE SHEETS INTEGRATION ====================
-async function callAppsScript(payload) {
-    try {
-        const response = await fetch(CONFIG.WEB_APP_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            cache: 'no-cache',
-            headers: {
-                'Content-Type': 'text/plain',
-            },
-            body: JSON.stringify(payload)
-        });
-        
-        console.log('Request sent to Google Apps Script');
-        return { success: true };
-    } catch (error) {
-        console.error('Error calling Apps Script:', error);
-        throw error;
-    }
-}
-
-async function testAppsScriptConnection() {
-    console.log('Testing Google Apps Script connection...');
-    showNotification('Testing connection to Google Sheets...', 'info');
-    
-    try {
-        const testPayload = {
-            action: 'test',
-            timestamp: new Date().toISOString()
-        };
-        
-        await callAppsScript(testPayload);
-        
-        showNotification('✅ Connection test sent successfully! Check Google Sheets for confirmation.', 'success', 5000);
-        console.log('Connection test completed successfully');
-        
-    } catch (error) {
-        console.error('Connection test failed:', error);
-        showNotification(`❌ Connection test failed: ${error.message}`, 'error');
-    }
-}
-
-function getSheetRowIndex(row) {
-    const allDataIndex = state.allData.indexOf(row);
-    if (allDataIndex === -1) {
-        if (row._rowIndex !== undefined) {
-            return row._rowIndex + 2;
-        }
-        console.warn('Row not found in data array and no _rowIndex property');
-        return -1;
-    }
-    return allDataIndex + 2;
-}
-
+// ==================== SAVE FUNCTIONS ====================
 async function saveMarkerData() {
+    const editDriverInput = document.getElementById('editDriver');
+    const editGroupInput = document.getElementById('editGroup');
+    const saveBtn = document.getElementById('saveBtn');
+    
+    if (!editDriverInput || !editGroupInput) {
+        showNotification('Error: Edit fields not found', 'error');
+        return;
+    }
+    
+    const newDriverName = editDriverInput.value.trim();
+    const newGroupValue = editGroupInput.value.trim();
+    
     if (!state.selectedRow) {
-        showNotification('No marker selected', 'error');
+        showNotification('Error: No row selected', 'error');
         return;
     }
-    
-    const inputId = `driver-${state.selectedRow['Id'] || state.selectedRow._rowIndex}`;
-    const saveBtn = document.querySelector(`#save-${state.selectedRow['Id'] || state.selectedRow._rowIndex}`);
-    const driverInput = document.getElementById(inputId);
-    
-    if (!driverInput) {
-        showNotification('Cannot find driver input field', 'error');
-        return;
-    }
-    
-    const newDriverName = driverInput.value.trim();
-    const oldDriver = state.selectedRow['Driver'] || '';
-    
-    if (newDriverName === oldDriver) {
-        showNotification('No changes to save', 'info');
-        return;
-    }
-    
-    const sheetRowIndex = getSheetRowIndex(state.selectedRow);
-    
-    if (sheetRowIndex === -1) {
-        showNotification('Cannot determine row position in sheet', 'error');
-        return;
-    }
-    
-    const oldGroup = state.selectedRow['Group'];
-    
+
     try {
         if (saveBtn) {
             saveBtn.disabled = true;
             saveBtn.innerHTML = '⏳ Saving...';
         }
         
+        const oldDriver = state.selectedRow['Driver'] || '';
+        const oldGroup = state.selectedRow['Group'] || '';
+        
+        const sheetRowIndex = getSheetRowIndex(state.selectedRow);
+        
+        if (sheetRowIndex === -1) {
+            throw new Error('Could not determine row index');
+        }
+        
+        console.log('Saving to sheet row:', sheetRowIndex, 'for dog:', state.selectedRow['Dog Name']);
+        
         state.selectedRow['Driver'] = newDriverName;
+        state.selectedRow['Group'] = newGroupValue;
+        
+        state.markerLookup.clear();
+        state.coordinateLookup.clear();
         
         assignDriverColors();
         updateMap();
         
-        showNotification('Saving to Google Sheets...', 'info');
+        setTimeout(() => {
+            const dogId = getDogId(state.selectedRow);
+            const markerData = state.markerLookup.get(dogId);
+            if (markerData && markerData.marker) {
+                selectMarker(markerData.marker, state.selectedRow, state.selectedRow['_rowIndex'], markerData.group);
+            }
+        }, 100);
+        
+        showNotification('Saving to Google Sheets...', 'info', 1000);
         
         const payload = {
-            action: 'update',
+            action: 'updateRow',
             rowIndex: sheetRowIndex,
             updatedData: {
-                'Driver': newDriverName
+                'Driver': newDriverName,
+                'Group': newGroupValue
             }
         };
         
-        console.log('Saving to row:', sheetRowIndex);
-        console.log('New driver value:', newDriverName);
-        
         await callAppsScript(payload);
         
-        showNotification('✅ Successfully saved to Google Sheets!', 'success', 3000);
+        showNotification('✅ Data updated in Google Sheets!', 'success', 2000);
         
         if (saveBtn) {
             saveBtn.disabled = false;
             saveBtn.innerHTML = '💾 Save';
         }
         
-        if (state.selectedMarker) {
-            const groups = parseGroup(oldGroup);
-            if (groups.length > 0) {
-                selectMarker(state.selectedMarker, state.selectedRow, state.selectedRow._rowIndex, groups[0]);
-            }
-        }
-        
         setTimeout(() => {
-            console.log('Reloading data to sync with Google Sheets...');
+            console.log('Reloading data to refresh tooltips...');
             loadData();
         }, 500);
         
     } catch (error) {
-        console.error('Save error:', error);
+        console.error('Error in saveMarkerData:', error);
         showNotification(`Error saving: ${error.message}`, 'error');
         
         if (saveBtn) {
@@ -1659,9 +2697,8 @@ function initializeApp() {
         });
         
         console.log('Application initialized successfully');
-        console.log('v2.7 - With Color Persistence (localStorage)');
+        console.log('v2.7 - True autocomplete enabled (type + TAB to complete)');
         console.log('Ghost text shows suggestion, TAB accepts it');
-        console.log('Driver colors are now saved locally!');
         
     } catch (error) {
         console.error('Error during application initialization:', error);
@@ -1690,7 +2727,7 @@ window.addEventListener('error', function(event) {
 
 document.addEventListener('DOMContentLoaded', initializeApp);
 
-console.log('Dog Walking Map v2.7 - With Color Persistence Ready');
+console.log('Dog Walking Map v2.7 - Fixed Autocomplete Ready');
     </script>
 </body>
 </html>
