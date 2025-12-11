@@ -843,7 +843,21 @@ function parseGroup(groupValue) {
     if (strValue.match(/^([123])\1$/)) {
         return parseInt(strValue[0], 10);
     }
-    
+    // Handle ! separator (1!3 pattern) - means groups 1 AND 3 only
+    if (strValue.includes('!')) {
+    const groups = strValue.split('!')
+        .map(g => g.trim())
+        .filter(g => g.match(/^[123]$/))
+        .sort();
+        if (groups.length === 2) {
+        const joined = groups.join('');
+            if (joined === '13') {
+            return '13';  // 1!3 means groups 1 and 3 only (not 2)
+        }
+    }
+}
+
+// Handle & separator (standard multi-group)
     if (strValue.includes('&')) {
         const groups = strValue.split('&')
             .map(g => g.trim())
