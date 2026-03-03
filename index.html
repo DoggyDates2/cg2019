@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -635,7 +636,7 @@
         </div>
         
         <div class="version-indicator">
-            v2.8 - Count Markers
+            v2.7 - Fixed Autocomplete
         </div>
     </div>
 
@@ -956,18 +957,6 @@ function isPointInPolygon(point, polygon) {
     return inside;
 }
 
-// Helper: determine if a hex color is light (for choosing text color)
-function isLightColor(color) {
-    if (!color || color.startsWith('hsl')) return false;
-    const hex = color.replace('#', '');
-    if (hex.length < 6) return false;
-    const r = parseInt(hex.substr(0, 2), 16);
-    const g = parseInt(hex.substr(2, 2), 16);
-    const b = parseInt(hex.substr(4, 2), 16);
-    // Perceived brightness formula
-    return (r * 299 + g * 587 + b * 114) / 1000 > 150;
-}
-
 // ==================== APPS SCRIPT COMMUNICATION ====================
 async function callAppsScript(payload) {
     try {
@@ -1201,7 +1190,7 @@ function setupAutocomplete(inputElement, hintElement) {
 }
 
 // ==================== MARKER CREATION ====================
-function createMarkerIcon(color, isSelected = false, markerType = 'circle', group = null, isInSelection = false, dogName = null, hasCallout = false, countLabel = null) {
+function createMarkerIcon(color, isSelected = false, markerType = 'circle', group = null, isInSelection = false, dogName = null, hasCallout = false) {
     if (dogName) {
         const dogNameLower = dogName.toLowerCase();
         if (dogNameLower === 'park' || dogNameLower === 'field') {
@@ -1226,58 +1215,35 @@ function createMarkerIcon(color, isSelected = false, markerType = 'circle', grou
     color = color || '#999999';
     const strokeColor = hasCallout ? '#ff0000' : (isInSelection ? '#007bff' : (isSelected ? '#007bff' : '#000000'));
     const strokeWidth = isSelected ? 3 : (isInSelection ? 3 : 2);
-
-    const isCount = countLabel !== null;
     const size = isInSelection ? 16 : 13;
-    const textColor = isLightColor(color) ? '#000' : '#fff';
-    const textEl = isCount ? `<text x="50%" y="54%" dominant-baseline="central" text-anchor="middle" fill="${textColor}" font-size="11" font-weight="bold" font-family="sans-serif" style="paint-order: stroke;" stroke="#000" stroke-width="0.5">${countLabel}</text>` : '';
     
     let icon;
     
     try {
         if (group === 2) {
-            // Triangle
             const svgSize = size + 3;
-            // For triangles, text sits a bit lower since top is a point
-            const textY = isCount ? '68%' : '54%';
-            const countText = isCount ? `<text x="50%" y="${textY}" dominant-baseline="central" text-anchor="middle" fill="${textColor}" font-size="11" font-weight="bold" font-family="sans-serif" style="paint-order: stroke;" stroke="#000" stroke-width="0.5">${countLabel}</text>` : '';
             icon = L.divIcon({
-                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
                     <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize-2} L2 ${svgSize-2} Z" 
                           fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                    ${countText}
                 </svg>`,
                 className: `custom-triangle-marker ${isInSelection ? 'marker-selected' : ''}`,
                 iconSize: [svgSize, svgSize],
                 iconAnchor: [svgSize/2, svgSize/2]
             });
         } else if (group === 3) {
-            // Square
-            if (isCount) {
-                icon = L.divIcon({
-                    html: `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
-                        <rect x="1" y="1" width="${size-2}" height="${size-2}" fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                        ${textEl}
-                    </svg>`,
-                    className: `custom-square-marker ${isInSelection ? 'marker-selected' : ''}`,
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2]
-                });
-            } else {
-                icon = L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
-                    className: `custom-square-marker ${isInSelection ? 'marker-selected' : ''}`,
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2]
-                });
-            }
+            icon = L.divIcon({
+                html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
+                className: `custom-square-marker ${isInSelection ? 'marker-selected' : ''}`,
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
         } else if (group === '12') {
             const svgSize = size + 4;
             icon = L.divIcon({
-                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
                     <polygon points="${svgSize/2},2 ${svgSize*0.6},${svgSize*0.4} ${svgSize-2},${svgSize*0.4} ${svgSize*0.7},${svgSize*0.6} ${svgSize*0.8},${svgSize-2} ${svgSize/2},${svgSize*0.75} ${svgSize*0.2},${svgSize-2} ${svgSize*0.3},${svgSize*0.6} 2,${svgSize*0.4} ${svgSize*0.4},${svgSize*0.4}" 
                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                    ${textEl}
                 </svg>`,
                 className: `custom-star-marker ${isInSelection ? 'marker-selected' : ''}`,
                 iconSize: [svgSize, svgSize],
@@ -1286,10 +1252,9 @@ function createMarkerIcon(color, isSelected = false, markerType = 'circle', grou
         } else if (group === '23') {
             const svgSize = size + 4;
             icon = L.divIcon({
-                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
                     <path d="M3 2 L${svgSize-3} 2 L${svgSize-5} ${svgSize-2} L5 ${svgSize-2} Z" 
                           fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                    ${textEl}
                 </svg>`,
                 className: `custom-trapezoid-marker ${isInSelection ? 'marker-selected' : ''}`,
                 iconSize: [svgSize, svgSize],
@@ -1301,35 +1266,21 @@ function createMarkerIcon(color, isSelected = false, markerType = 'circle', grou
             const cy = svgSize/2;
             const r = (svgSize-4)/2;
             icon = L.divIcon({
-                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
                     <polygon points="${cx+r},${cy} ${cx+r/2},${cy-r*0.866} ${cx-r/2},${cy-r*0.866} ${cx-r},${cy} ${cx-r/2},${cy+r*0.866} ${cx+r/2},${cy+r*0.866}" 
                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                    ${textEl}
                 </svg>`,
                 className: `custom-hexagon-marker ${isInSelection ? 'marker-selected' : ''}`,
                 iconSize: [svgSize, svgSize],
                 iconAnchor: [svgSize/2, svgSize/2]
             });
         } else {
-            // Circle (Group 1 or default)
-            if (isCount) {
-                icon = L.divIcon({
-                    html: `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
-                        <circle cx="${size/2}" cy="${size/2}" r="${(size-strokeWidth*2)/2}" fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
-                        ${textEl}
-                    </svg>`,
-                    className: `custom-marker ${isInSelection ? 'marker-selected' : ''}`,
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2]
-                });
-            } else {
-                icon = L.divIcon({
-                    html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
-                    className: `custom-marker ${isInSelection ? 'marker-selected' : ''}`,
-                    iconSize: [size, size],
-                    iconAnchor: [size/2, size/2]
-                });
-            }
+            icon = L.divIcon({
+                html: `<div style="width: ${size}px; height: ${size}px; background-color: ${color}; border: ${strokeWidth}px solid ${strokeColor}; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.3); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}"></div>`,
+                className: `custom-marker ${isInSelection ? 'marker-selected' : ''}`,
+                iconSize: [size, size],
+                iconAnchor: [size/2, size/2]
+            });
         }
         
         return icon;
@@ -1655,9 +1606,6 @@ function updateMap() {
             }
         });
 
-        // Track which driver+group combos have already been assigned a count marker
-        const countMarkerAssigned = {};  // key: "driverName|group" -> true
-
         state.filteredData.forEach(row => {
             if (!row) return;
             
@@ -1686,24 +1634,6 @@ function updateMap() {
                 const isInSelection = dogId && state.selectedMarkers.has(dogId);
                 const hasCallout = row['Callout'] && row['Callout'].trim();
                 
-                // Determine if this marker should be the count marker for its driver+group
-                let countLabel = null;
-                const dogNameLower = (row['Dog Name'] || '').toLowerCase();
-                const isSpecial = dogNameLower === 'park' || dogNameLower === 'field';
-                
-                if (driver && !isSpecial && !driver.toLowerCase().includes('unassigned') &&
-                    group !== null && (typeof group === 'number') &&
-                    state.driverCounts && state.driverCounts[driver]) {
-                    const countKey = `${driver}|${group}`;
-                    if (!countMarkerAssigned[countKey]) {
-                        const count = state.driverCounts[driver][group];
-                        if (count > 0) {
-                            countLabel = count;
-                            countMarkerAssigned[countKey] = true;
-                        }
-                    }
-                }
-                
                 const driverDisplay = driver || 'No Driver';
                 const groupDisplay = row['Group'] || '?';
                 const dogNameDisplay = row['Dog Name'] || 'Unknown';
@@ -1731,7 +1661,7 @@ function updateMap() {
                 tooltipHtml += `</div>`;
                 
                 const marker = L.marker([offsetLat, offsetLng], {
-                    icon: createMarkerIcon(color, false, 'group', group, isInSelection, row['Dog Name'], hasCallout, countLabel),
+                    icon: createMarkerIcon(color, false, 'group', group, isInSelection, row['Dog Name'], hasCallout),
                     riseOnHover: true
                 });
 
@@ -1751,7 +1681,6 @@ function updateMap() {
                 }
 
                 marker._rowData = row;
-                marker._countLabel = countLabel;  // store so we can preserve on re-render
                 
                 const markerData = {marker, row, index: row['_rowIndex'] ?? state.allData.indexOf(row), group};
                 
@@ -2040,7 +1969,7 @@ function updateSelectedMarkersDisplay() {
                 color = '#000000';
             }
             
-            const newIcon = createMarkerIcon(color, isSelected, 'group', markerData.group, isInSelection, markerData.row['Dog Name'], markerData.row['Callout'] && markerData.row['Callout'].trim(), markerData.marker._countLabel || null);
+            const newIcon = createMarkerIcon(color, isSelected, 'group', markerData.group, isInSelection, markerData.row['Dog Name'], markerData.row['Callout'] && markerData.row['Callout'].trim());
             markerData.marker.setIcon(newIcon);
         } catch (error) {
             console.error('Error updating marker display:', error);
@@ -2165,7 +2094,7 @@ function selectMarker(marker, row, index, group) {
                     
                     const dogId = getDogId(prevData.row);
                     const isInSelection = dogId && state.selectedMarkers.has(dogId);
-                    state.selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group, isInSelection, prevData.row['Dog Name'], prevData.row['Callout'] && prevData.row['Callout'].trim(), state.selectedMarker._countLabel || null));
+                    state.selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group, isInSelection, prevData.row['Dog Name'], prevData.row['Callout'] && prevData.row['Callout'].trim()));
                 } catch (clearError) {
                     console.warn('Error clearing previous marker:', clearError);
                 }
@@ -2185,7 +2114,7 @@ function selectMarker(marker, row, index, group) {
             
             const dogId = getDogId(row);
             const isInSelection = dogId && state.selectedMarkers.has(dogId);
-            marker.setIcon(createMarkerIcon(color, true, 'group', group, isInSelection, row['Dog Name'], row['Callout'] && row['Callout'].trim(), marker._countLabel || null));
+            marker.setIcon(createMarkerIcon(color, true, 'group', group, isInSelection, row['Dog Name'], row['Callout'] && row['Callout'].trim()));
         } catch (iconError) {
             console.warn('Error updating marker icon:', iconError);
         }
@@ -2810,7 +2739,8 @@ function initializeApp() {
         });
         
         console.log('Application initialized successfully');
-        console.log('v2.8 - Count markers: first marker per driver/group shows the count inside the shape');
+        console.log('v2.7 - True autocomplete enabled (type + TAB to complete)');
+        console.log('Ghost text shows suggestion, TAB accepts it');
         
     } catch (error) {
         console.error('Error during application initialization:', error);
@@ -2839,7 +2769,7 @@ window.addEventListener('error', function(event) {
 
 document.addEventListener('DOMContentLoaded', initializeApp);
 
-console.log('Dog Walking Map v2.8 - Count Markers Ready');
+console.log('Dog Walking Map v2.7 - Fixed Autocomplete Ready');
     </script>
 </body>
 </html>
