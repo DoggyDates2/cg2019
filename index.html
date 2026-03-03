@@ -1227,23 +1227,22 @@ function createMarkerIcon(color, isSelected = false, markerType = 'circle', grou
     const strokeColor = hasCallout ? '#ff0000' : (isInSelection ? '#007bff' : (isSelected ? '#007bff' : '#000000'));
     const strokeWidth = isSelected ? 3 : (isInSelection ? 3 : 2);
 
-    // Count markers are bigger to fit the number inside
     const isCount = countLabel !== null;
-    const size = isCount ? 26 : (isInSelection ? 16 : 13);
+    const size = isInSelection ? 16 : 13;
     const textColor = isLightColor(color) ? '#000' : '#fff';
-    const textEl = isCount ? `<text x="50%" y="54%" dominant-baseline="central" text-anchor="middle" fill="${textColor}" font-size="12" font-weight="bold" font-family="sans-serif">${countLabel}</text>` : '';
+    const textEl = isCount ? `<text x="50%" y="54%" dominant-baseline="central" text-anchor="middle" fill="${textColor}" font-size="11" font-weight="bold" font-family="sans-serif" style="paint-order: stroke;" stroke="#000" stroke-width="0.5">${countLabel}</text>` : '';
     
     let icon;
     
     try {
         if (group === 2) {
             // Triangle
-            const svgSize = isCount ? 32 : (size + 3);
+            const svgSize = size + 3;
             // For triangles, text sits a bit lower since top is a point
-            const textY = isCount ? '62%' : '54%';
-            const countText = isCount ? `<text x="50%" y="${textY}" dominant-baseline="central" text-anchor="middle" fill="${textColor}" font-size="12" font-weight="bold" font-family="sans-serif">${countLabel}</text>` : '';
+            const textY = isCount ? '68%' : '54%';
+            const countText = isCount ? `<text x="50%" y="${textY}" dominant-baseline="central" text-anchor="middle" fill="${textColor}" font-size="11" font-weight="bold" font-family="sans-serif" style="paint-order: stroke;" stroke="#000" stroke-width="0.5">${countLabel}</text>` : '';
             icon = L.divIcon({
-                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
                     <path d="M${svgSize/2} 2 L${svgSize-2} ${svgSize-2} L2 ${svgSize-2} Z" 
                           fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                     ${countText}
@@ -1256,7 +1255,7 @@ function createMarkerIcon(color, isSelected = false, markerType = 'circle', grou
             // Square
             if (isCount) {
                 icon = L.divIcon({
-                    html: `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                    html: `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
                         <rect x="1" y="1" width="${size-2}" height="${size-2}" fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                         ${textEl}
                     </svg>`,
@@ -1273,9 +1272,9 @@ function createMarkerIcon(color, isSelected = false, markerType = 'circle', grou
                 });
             }
         } else if (group === '12') {
-            const svgSize = isCount ? 30 : (size + 4);
+            const svgSize = size + 4;
             icon = L.divIcon({
-                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
                     <polygon points="${svgSize/2},2 ${svgSize*0.6},${svgSize*0.4} ${svgSize-2},${svgSize*0.4} ${svgSize*0.7},${svgSize*0.6} ${svgSize*0.8},${svgSize-2} ${svgSize/2},${svgSize*0.75} ${svgSize*0.2},${svgSize-2} ${svgSize*0.3},${svgSize*0.6} 2,${svgSize*0.4} ${svgSize*0.4},${svgSize*0.4}" 
                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                     ${textEl}
@@ -1285,9 +1284,9 @@ function createMarkerIcon(color, isSelected = false, markerType = 'circle', grou
                 iconAnchor: [svgSize/2, svgSize/2]
             });
         } else if (group === '23') {
-            const svgSize = isCount ? 30 : (size + 4);
+            const svgSize = size + 4;
             icon = L.divIcon({
-                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
                     <path d="M3 2 L${svgSize-3} 2 L${svgSize-5} ${svgSize-2} L5 ${svgSize-2} Z" 
                           fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                     ${textEl}
@@ -1297,12 +1296,12 @@ function createMarkerIcon(color, isSelected = false, markerType = 'circle', grou
                 iconAnchor: [svgSize/2, svgSize/2]
             });
         } else if (group === '123') {
-            const svgSize = isCount ? 30 : (size + 4);
+            const svgSize = size + 4;
             const cx = svgSize/2;
             const cy = svgSize/2;
             const r = (svgSize-4)/2;
             icon = L.divIcon({
-                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                html: `<svg width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
                     <polygon points="${cx+r},${cy} ${cx+r/2},${cy-r*0.866} ${cx-r/2},${cy-r*0.866} ${cx-r},${cy} ${cx-r/2},${cy+r*0.866} ${cx+r/2},${cy+r*0.866}" 
                              fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                     ${textEl}
@@ -1315,7 +1314,7 @@ function createMarkerIcon(color, isSelected = false, markerType = 'circle', grou
             // Circle (Group 1 or default)
             if (isCount) {
                 icon = L.divIcon({
-                    html: `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}">
+                    html: `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.3)); ${isInSelection ? 'animation: pulse 2s infinite;' : ''}" overflow="visible">
                         <circle cx="${size/2}" cy="${size/2}" r="${(size-strokeWidth*2)/2}" fill="${color}" stroke="${strokeColor}" stroke-width="${strokeWidth}"/>
                         ${textEl}
                     </svg>`,
