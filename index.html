@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -818,6 +817,12 @@ function validateCoordinates(lat, lng) {
     return true;
 }
 
+// Normalize driver name: strip trailing * so "Andy*" matches "Andy"
+function normalizeDriverName(name) {
+    if (!name) return '';
+    return name.trim().replace(/\*+$/, '');
+}
+
 // Parse group from the Group column
 function parseGroup(groupValue) {
     if (!groupValue) return null;
@@ -1044,7 +1049,7 @@ function assignDriverColors() {
                              row['Driver'].trim() : 
                              (row['Combined'] ? row['Combined'].trim() : '');
             if (driverName) {
-                drivers.add(driverName);
+                drivers.add(normalizeDriverName(driverName));
             }
         }
     });
@@ -1082,8 +1087,9 @@ function getDriverColor(name) {
         return '#000000';
     }
     
-    if (state.customColors[trimmedName]) return state.customColors[trimmedName];
-    return state.driverColorMap[trimmedName] || '#999999';
+    const normalized = normalizeDriverName(trimmedName);
+    if (state.customColors[normalized]) return state.customColors[normalized];
+    return state.driverColorMap[normalized] || '#999999';
 }
 
 function changeCustomColor(categoryName, newColor) {
@@ -1587,7 +1593,7 @@ function updateMap() {
             }
             
             if (state.currentFilter !== null) {
-                const rowDriver = row['Driver'] || row['Combined'] || '';
+                const rowDriver = normalizeDriverName(row['Driver'] || row['Combined'] || '');
                 if (rowDriver !== state.currentFilter) {
                     return false;
                 }
@@ -1601,7 +1607,8 @@ function updateMap() {
             if (row && (row['Driver'] || row['Combined'])) {
                 const driver = row['Driver'] || row['Combined'] || '';
                 if (driver) {
-                    state.colorMap[driver] = getDriverColor(driver);
+                    const normalized = normalizeDriverName(driver);
+                    state.colorMap[driver] = getDriverColor(normalized);
                 }
             }
         });
@@ -1639,10 +1646,11 @@ function updateMap() {
                 const dogNameDisplay = row['Dog Name'] || 'Unknown';
                 const notesValue = row['Notes'] || '';
                 
+                const normalizedDriver = normalizeDriverName(driver);
                 let tooltipHtml = `<div style="text-align: center;"><strong>${escapeHtml(driverDisplay)}:${escapeHtml(groupDisplay)}</strong>`;
                 
-                if (driver && state.driverCounts && state.driverCounts[driver]) {
-                    const counts = state.driverCounts[driver];
+                if (normalizedDriver && state.driverCounts && state.driverCounts[normalizedDriver]) {
+                    const counts = state.driverCounts[normalizedDriver];
                     const total = counts[1] + counts[2] + counts[3];
                     if (total > 0) {
                         tooltipHtml += `  <span style="color: #ff6b6b; font-weight: bold;">(${counts[1]}, ${counts[2]}, ${counts[3]})</span>`;
@@ -2271,24 +2279,33 @@ function updateLegend() {
     if (!legendContent) return;
     
     try {
-        const sortedEntries = Object.entries(state.colorMap).sort(([a], [b]) => a.localeCompare(b));
+        const sortedEntries = Object.entries(state.colorMap).sort(([a], [b]) => normalizeDriverName(a).localeCompare(normalizeDriverName(b)));
         const legendItems = [];
         
         state.driverCounts = {};
         
+        // Build legend keyed by normalized driver name
+        const legendMap = new Map();
+        
         sortedEntries.forEach(([key, color]) => {
             if (!key || !color) return;
-            
-            const isActive = state.currentFilter === key;
-            let displayText = escapeHtml(key);
+            const normalized = normalizeDriverName(key);
+            if (!legendMap.has(normalized)) {
+                legendMap.set(normalized, color);
+            }
+        });
+        
+        legendMap.forEach((color, normalizedKey) => {
+            const isActive = state.currentFilter === normalizedKey;
+            let displayText = escapeHtml(normalizedKey);
             
             if (state.allData && state.allData.length > 0) {
                 const groupCounts = { 1: 0, 2: 0, 3: 0 };
                 
                 state.allData.forEach(row => {
                     if (!row) return;
-                    const rowDriver = row['Driver'] || row['Combined'] || '';
-                    if (rowDriver !== key) return;
+                    const rowDriver = normalizeDriverName(row['Driver'] || row['Combined'] || '');
+                    if (rowDriver !== normalizedKey) return;
                     
                     const dogCount = parseInt(row['Number of Dogs'] || '1') || 1;
                     const group = parseGroup(row['Group']);
@@ -2307,7 +2324,7 @@ function updateLegend() {
                     }
                 });
                 
-                state.driverCounts[key] = groupCounts;
+                state.driverCounts[normalizedKey] = groupCounts;
                 
                 const total = groupCounts[1] + groupCounts[2] + groupCounts[3];
                 if (total > 0) {
@@ -2315,8 +2332,8 @@ function updateLegend() {
                 }
             }
             
-            const dataKey = escapeHtml(key);
-            const safeKey = key.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\\/g, '\\\\');
+            const dataKey = escapeHtml(normalizedKey);
+            const safeKey = normalizedKey.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\\/g, '\\\\');
             
             legendItems.push(`
                 <div class="legend-item ${isActive ? 'active' : ''}" 
