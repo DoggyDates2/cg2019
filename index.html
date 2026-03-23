@@ -834,15 +834,15 @@ function parseGroup(groupValue) {
     // Remove business codes
     if (strValue.includes('&')) {
         const parts = strValue.split('&').map(part => {
-            return part.replace(/DD|SUB|AA|Trial|F|XX/g, '').trim();
+            return part.replace(/DD|SUB|AA|!|LM|Trial|F|XX/g, '').trim();
         });
         strValue = parts.join('&');
     } else {
         strValue = strValue.replace(/(\d)(DD|SUB|Trial|AA|F|XX)(\d)/g, '$1$3');
-        strValue = strValue.replace(/(\d)(DD|Trial|SUB|AA|F|XX)$/g, '$1');
+        strValue = strValue.replace(/(\d)(DD|Trial|SUB|AA|!|LM|F|XX)$/g, '$1');
     }
     
-    if (strValue !== originalValue && originalValue.match(/DD|Trial|SUB|AA|F/)) {
+    if (strValue !== originalValue && originalValue.match(/DD|Trial|SUB|AA|!|LM|F/)) {
         console.log(`Business code parsed: "${originalValue}" -> "${strValue}"`);
     }
     
