@@ -817,6 +817,14 @@ function validateCoordinates(lat, lng) {
     return true;
 }
 
+// Returns true when column S ("Grooming") holds an X (case-insensitive)
+function isGrooming(row) {
+    if (!row) return false;
+    const v = row['Grooming'];
+    if (v == null) return false;
+    return String(v).trim().toLowerCase() === 'x';
+}
+
 // Normalize driver name: strip trailing * so "Andy*" matches "Andy"
 function normalizeDriverName(name) {
     if (!name) return '';
@@ -1196,7 +1204,7 @@ function setupAutocomplete(inputElement, hintElement) {
 }
 
 // ==================== MARKER CREATION ====================
-function createMarkerIcon(color, isSelected = false, markerType = 'circle', group = null, isInSelection = false, dogName = null, hasCallout = false) {
+function createMarkerIcon(color, isSelected = false, markerType = 'circle', group = null, isInSelection = false, dogName = null, hasCallout = false, grooming = false) {
     if (dogName) {
         const dogNameLower = dogName.toLowerCase();
         if (dogNameLower === 'park' || dogNameLower === 'field') {
@@ -1287,6 +1295,19 @@ function createMarkerIcon(color, isSelected = false, markerType = 'circle', grou
                 iconSize: [size, size],
                 iconAnchor: [size/2, size/2]
             });
+        }
+        
+        if (grooming && icon && icon.options) {
+            const opt = icon.options;
+            const w = (opt.iconSize && opt.iconSize[0]) || 16;
+            const h = (opt.iconSize && opt.iconSize[1]) || 16;
+            opt.html = '<div style="position:relative;width:' + w + 'px;height:' + h + 'px;">'
+                + opt.html
+                + '<svg width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h + '" '
+                + 'style="position:absolute;top:0;left:0;pointer-events:none;">'
+                + '<line x1="2" y1="2" x2="' + (w - 2) + '" y2="' + (h - 2) + '" stroke="#ff0000" stroke-width="2.5" stroke-linecap="round"/>'
+                + '<line x1="' + (w - 2) + '" y1="2" x2="2" y2="' + (h - 2) + '" stroke="#ff0000" stroke-width="2.5" stroke-linecap="round"/>'
+                + '</svg></div>';
         }
         
         return icon;
@@ -1669,7 +1690,7 @@ function updateMap() {
                 tooltipHtml += `</div>`;
                 
                 const marker = L.marker([offsetLat, offsetLng], {
-                    icon: createMarkerIcon(color, false, 'group', group, isInSelection, row['Dog Name'], hasCallout),
+                    icon: createMarkerIcon(color, false, 'group', group, isInSelection, row['Dog Name'], hasCallout, isGrooming(row)),
                     riseOnHover: true
                 });
 
@@ -1977,7 +1998,7 @@ function updateSelectedMarkersDisplay() {
                 color = '#000000';
             }
             
-            const newIcon = createMarkerIcon(color, isSelected, 'group', markerData.group, isInSelection, markerData.row['Dog Name'], markerData.row['Callout'] && markerData.row['Callout'].trim());
+            const newIcon = createMarkerIcon(color, isSelected, 'group', markerData.group, isInSelection, markerData.row['Dog Name'], markerData.row['Callout'] && markerData.row['Callout'].trim(), isGrooming(markerData.row));
             markerData.marker.setIcon(newIcon);
         } catch (error) {
             console.error('Error updating marker display:', error);
@@ -2102,7 +2123,7 @@ function selectMarker(marker, row, index, group) {
                     
                     const dogId = getDogId(prevData.row);
                     const isInSelection = dogId && state.selectedMarkers.has(dogId);
-                    state.selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group, isInSelection, prevData.row['Dog Name'], prevData.row['Callout'] && prevData.row['Callout'].trim()));
+                    state.selectedMarker.setIcon(createMarkerIcon(color, false, 'group', prevData.group, isInSelection, prevData.row['Dog Name'], prevData.row['Callout'] && prevData.row['Callout'].trim(), isGrooming(prevData.row)));
                 } catch (clearError) {
                     console.warn('Error clearing previous marker:', clearError);
                 }
@@ -2122,7 +2143,7 @@ function selectMarker(marker, row, index, group) {
             
             const dogId = getDogId(row);
             const isInSelection = dogId && state.selectedMarkers.has(dogId);
-            marker.setIcon(createMarkerIcon(color, true, 'group', group, isInSelection, row['Dog Name'], row['Callout'] && row['Callout'].trim()));
+            marker.setIcon(createMarkerIcon(color, true, 'group', group, isInSelection, row['Dog Name'], row['Callout'] && row['Callout'].trim(), isGrooming(row)));
         } catch (iconError) {
             console.warn('Error updating marker icon:', iconError);
         }
