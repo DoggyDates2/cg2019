@@ -962,6 +962,73 @@ function isPointInPolygon(point, polygon) {
     return inside;
 }
 
+// ==================== SAFE ROW RESOLUTION (by Dog ID) ====================
+// Re-reads the sheet at save time and maps each Dog ID to its CURRENT
+// sheet row. This makes writes immune to the sheet being sorted or
+// filtered after the map loaded — we always write to the right dog,
+// or refuse if we can't be sure.
+async function fetchIdIndexMap() {
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.SHEET_ID}/values/${CONFIG.WORKSHEET_NAME}?key=${CONFIG.API_KEY}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Verify read failed (${response.status})`);
+    const data = await response.json();
+    const values = data.values || [];
+    if (values.length < 1) throw new Error('Sheet returned no data');
+    const headers = values[0];
+    const idCol = headers.indexOf('Dog ID');
+    if (idCol === -1) throw new Error('No "Dog ID" column found');
+    const nameCol = headers.indexOf('Dog Name');
+    const addrCol = headers.indexOf('Address');
+    const byId = new Map(); // id -> [{sheetRow, name, addr}, ...]
+    for (let i = 1; i < values.length; i++) {
+        const id = (values[i][idCol] || '').trim();
+        if (!id) continue;
+        if (!byId.has(id)) byId.set(id, []);
+        byId.get(id).push({
+            sheetRow: i + 1, // sheet row = data index i (0-based incl header) + 1
+            name: nameCol >= 0 ? String(values[i][nameCol] || '').trim().toLowerCase() : '',
+            addr: addrCol >= 0 ? String(values[i][addrCol] || '').trim().toLowerCase() : ''
+        });
+    }
+    return { byId };
+}
+
+// Returns the verified current sheet row for a dog, or throws a clear
+// message telling the user to reload. Duplicate Dog IDs are
+// disambiguated by Dog Name, then Address, then the originally
+// memorized row — and only blocked if still ambiguous.
+function resolveVerifiedRow(row, idIndex) {
+    const dogId = (row['Dog ID'] || '').trim();
+    if (!dogId) {
+        throw new Error(`"${row['Dog Name'] || 'This dog'}" has no Dog ID, so its row can't be safely verified. Add a Dog ID or reload.`);
+    }
+    let candidates = idIndex.byId.get(dogId) || [];
+    if (candidates.length === 0) {
+        throw new Error(`Couldn't find "${row['Dog Name'] || dogId}" in the sheet anymore. Please reload the map before saving.`);
+    }
+    if (candidates.length === 1) return candidates[0].sheetRow;
+
+    // Duplicate ID: narrow by Dog Name, then Address.
+    const wantName = String(row['Dog Name'] || '').trim().toLowerCase();
+    const wantAddr = String(row['Address'] || '').trim().toLowerCase();
+    let narrowed = wantName ? candidates.filter(c => c.name === wantName) : candidates;
+    if (narrowed.length === 0) narrowed = candidates;
+    if (narrowed.length > 1 && wantAddr) {
+        const byAddr = narrowed.filter(c => c.addr === wantAddr);
+        if (byAddr.length > 0) narrowed = byAddr;
+    }
+    if (narrowed.length === 1) return narrowed[0].sheetRow;
+
+    // Still ambiguous (identical rows): prefer the row this dog was
+    // loaded from, if it's among the candidates.
+    if (typeof row['_rowIndex'] === 'number') {
+        const memorized = row['_rowIndex'] + 2;
+        const match = narrowed.find(c => c.sheetRow === memorized);
+        if (match) return match.sheetRow;
+    }
+    throw new Error(`Dog ID "${dogId}" appears ${candidates.length} times in the sheet and the copies look identical — can't tell which row to update. Fix the duplicate, then reload.`);
+}
+
 // ==================== APPS SCRIPT COMMUNICATION ====================
 async function callAppsScript(payload) {
     try {
@@ -2470,12 +2537,10 @@ async function saveMarkerData() {
         const oldDriver = state.selectedRow['Driver'] || '';
         const oldGroup = state.selectedRow['Group'] || '';
         
-        const sheetRowIndex = getSheetRowIndex(state.selectedRow);
-        
-        if (sheetRowIndex === -1) {
-            throw new Error('Could not determine row index');
-        }
-        
+        // Verify the dog's current row by Dog ID before writing.
+        const idIndex = await fetchIdIndexMap();
+        const sheetRowIndex = resolveVerifiedRow(state.selectedRow, idIndex);
+
         console.log('Saving to sheet row:', sheetRowIndex, 'for dog:', state.selectedRow['Dog Name']);
         
         state.selectedRow['Driver'] = newDriverName;
@@ -2569,18 +2634,26 @@ async function bulkUpdateSelected() {
     }
     
     try {
+        const idIndex = await fetchIdIndexMap();
         const validSelectedRows = [];
         const sheetRowIndices = [];
-        
+        const unresolved = [];
+
         for (const dogId of state.selectedMarkers) {
             const markerData = state.markerLookup.get(dogId);
             if (markerData && markerData.row) {
-                const sheetRowIndex = getSheetRowIndex(markerData.row);
-                if (sheetRowIndex !== -1) {
+                try {
+                    const sheetRowIndex = resolveVerifiedRow(markerData.row, idIndex);
                     validSelectedRows.push(markerData.row);
                     sheetRowIndices.push(sheetRowIndex);
+                } catch (e) {
+                    unresolved.push(markerData.row['Dog Name'] || dogId);
                 }
             }
+        }
+
+        if (unresolved.length > 0) {
+            throw new Error(`Can't safely update ${unresolved.length} dog(s): ${unresolved.slice(0, 5).join(', ')}${unresolved.length > 5 ? '…' : ''}. Reload the map and try again.`);
         }
         
         if (validSelectedRows.length === 0) {
@@ -2597,7 +2670,7 @@ async function bulkUpdateSelected() {
             bulkBtn.innerHTML = '⏳ Updating...';
         }
         
-        const oldValues = validSelectedRows.map(row => ({
+        var oldValues = validSelectedRows.map(row => ({
             row: row,
             oldDriver: row['Driver'] || ''
         }));
