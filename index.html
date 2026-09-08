@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐕 Dog Walking Map v2.7 - Fixed Autocomplete</title>
+    <title>Build Schedule</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22/>">
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -634,8 +635,8 @@
             <button class="btn btn-info" id="testConnectionBtn">🔌 Test Connection</button>
         </div>
         
-        <div class="version-indicator">
-            v2.7 - Fixed Autocomplete
+        <div class="version-indicator" style="font-weight:700; font-size:18px; color:#111; letter-spacing:1px;">
+            BUILD SCHEDULE
         </div>
     </div>
 
@@ -691,6 +692,8 @@ const CONFIG = Object.freeze({
     WORKSHEET_NAME: 'Mymap',
     API_KEY: 'AIzaSyAGLteYp1k98SZo0FMClRgBX0LBsgpMxqI',
     APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx8j56q2vKpgm2jZu-bL3SxyySZccBK6F8XK-LinPmzHxEJDFh-aY-wIO6gVPfX8NH0dQ/exec',
+    TILE_PROVIDER: 'carto', // 'carto' (free key), 'stadia' (paid), or 'osm' (no key)
+    TILE_API_KEY: 'cb1_2vkr_1_cb64ab641c4e0cec7ba0723c',
     DEFAULT_LAT: 42.2968,
     DEFAULT_LNG: -71.2636,
     DEFAULT_ZOOM: 11,
@@ -1102,6 +1105,105 @@ async function testAppsScriptConnection() {
 }
 
 // ==================== COLOR MANAGEMENT ====================
+// ---- perceptual colour distance -----------------------------------------
+// Adjacent drivers used to get whatever palette entry their alphabetical
+// position landed on, which is why near-identical colours kept ending up side
+// by side. These let us measure how different two colours actually look.
+
+function hexToLab(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || '').trim());
+    if (!m) return null;
+
+    let [r, g, b] = [0, 2, 4].map(i => parseInt(m[1].substr(i, 2), 16) / 255);
+    [r, g, b] = [r, g, b].map(v => v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4));
+
+    const x = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+    const y = (r * 0.2126 + g * 0.7152 + b * 0.0722);
+    const z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+
+    const f = t => t > 0.008856 ? Math.cbrt(t) : (7.787 * t + 16 / 116);
+    const [fx, fy, fz] = [f(x), f(y), f(z)];
+
+    return { L: 116 * fy - 16, a: 500 * (fx - fy), b: 200 * (fy - fz) };
+}
+
+const LAB_CACHE = {};
+function labOf(hex) {
+    if (!(hex in LAB_CACHE)) LAB_CACHE[hex] = hexToLab(hex);
+    return LAB_CACHE[hex];
+}
+
+// CIE76 deltaE. Under ~25 two colours are easy to confuse on small markers.
+function colorDistance(hexA, hexB) {
+    const A = labOf(hexA), B = labOf(hexB);
+    if (!A || !B) return 100;
+    return Math.hypot(A.L - B.L, A.a - B.a, A.b - B.b);
+}
+
+// Hue angle in Lab space (0-360). Two colours with the same hue are the same
+// colour *family* -- "purple" -- even when deltaE says they're far apart.
+function hueOf(hex) {
+    const c = labOf(hex);
+    if (!c) return null;
+    return (Math.atan2(c.b, c.a) * 180 / Math.PI + 360) % 360;
+}
+
+function hueGap(hexA, hexB) {
+    const a = hueOf(hexA), b = hueOf(hexB);
+    if (a === null || b === null) return 180;
+    const d = Math.abs(a - b) % 360;
+    return d > 180 ? 360 - d : d;
+}
+
+// The distance we actually optimise. deltaE alone let three purples sit side
+// by side because each pair cleared the threshold; this collapses the score
+// whenever two colours share a family, so neighbours get genuinely different
+// hues, not different shades of one.
+function perceivedSeparation(hexA, hexB) {
+    const dE = colorDistance(hexA, hexB);
+    const gap = hueGap(hexA, hexB);
+    if (dE < 25) return Math.min(dE, 4);        // too close overall: near-veto
+    if (gap < 35) return Math.min(dE, 4);       // same family: near-veto
+    if (gap < 60) return Math.min(dE, 30);      // adjacent family: mild penalty
+    return dE;
+}
+
+// About a mile: close enough on screen that similar colours would be confusable.
+// Two rings. Inner: dogs within about a mile -- these drivers' markers sit
+// right on top of each other and must not share a colour family. Outer: about
+// 2.5 miles -- close enough that at the zoom you actually work at they still
+// look adjacent, so they're pushed apart too, just with less force.
+const NEIGHBOUR_RADIUS_DEG = 0.015;
+const NEIGHBOUR_OUTER_RADIUS_DEG = 0.04;
+
+// Returns { inner: {driver: Set}, outer: {driver: Set} }
+function buildDriverAdjacency(driverPoints) {
+    const names = Object.keys(driverPoints);
+    const inner = {}, outer = {};
+    names.forEach(n => { inner[n] = new Set(); outer[n] = new Set(); });
+
+    for (let i = 0; i < names.length; i++) {
+        for (let j = i + 1; j < names.length; j++) {
+            const A = driverPoints[names[i]], B = driverPoints[names[j]];
+            let closest = Infinity;
+            for (let a = 0; a < A.length; a++) {
+                for (let b = 0; b < B.length; b++) {
+                    const d = Math.max(Math.abs(A[a].lat - B[b].lat), Math.abs(A[a].lng - B[b].lng));
+                    if (d < closest) closest = d;
+                    if (closest <= NEIGHBOUR_RADIUS_DEG) break;
+                }
+                if (closest <= NEIGHBOUR_RADIUS_DEG) break;
+            }
+            if (closest <= NEIGHBOUR_RADIUS_DEG) {
+                inner[names[i]].add(names[j]); inner[names[j]].add(names[i]);
+            } else if (closest <= NEIGHBOUR_OUTER_RADIUS_DEG) {
+                outer[names[i]].add(names[j]); outer[names[j]].add(names[i]);
+            }
+        }
+    }
+    return { inner, outer };
+}
+
 function assignDriverColors() {
     if (!state.allData || state.allData.length === 0) {
         state.driverColorMap = {};
@@ -1123,14 +1225,109 @@ function assignDriverColors() {
     
     const sortedDrivers = Array.from(drivers).sort();
     const newColorMap = {};
-    
-    sortedDrivers.forEach((driver, index) => {
-        if (state.customColors[driver]) {
-            newColorMap[driver] = state.customColors[driver];
-        } else if (state.driverColorMap[driver]) {
-            newColorMap[driver] = state.driverColorMap[driver];
-        } else if (index < ALL_COLORS.length) {
-            newColorMap[driver] = ALL_COLORS[index];
+
+    // Where each driver's dogs are, so we know who works next to whom.
+    const driverPoints = {};
+    state.allData.forEach(row => {
+        if (!row) return;
+        const raw = (row['Driver'] && row['Driver'].trim())
+            ? row['Driver'].trim()
+            : (row['Combined'] ? row['Combined'].trim() : '');
+        if (!raw) return;
+        const driver = normalizeDriverName(raw);
+        if (!driver) return;
+
+        const lat = row['_lat'] ?? parseFloat(row['Latitude']);
+        const lng = row['_lng'] ?? parseFloat(row['Longitude']);
+        if (!validateCoordinates(lat, lng)) return;
+        (driverPoints[driver] = driverPoints[driver] || []).push({ lat: +lat, lng: +lng });
+    });
+
+    const { inner: adjacency, outer: outerAdjacency } = buildDriverAdjacency(driverPoints);
+
+    // Fixed points: hand-picked colours, and anything already assigned in
+        // this session. assignDriverColors() reruns after every save, so
+        // re-optimising from scratch would reshuffle the whole map mid-edit --
+        // only genuinely new drivers get a fresh colour. "Reset Colors" clears
+        // driverColorMap and gives the full optimisation again.
+    sortedDrivers.forEach(driver => {
+        if (state.customColors[driver]) newColorMap[driver] = state.customColors[driver];
+        else if (state.driverColorMap[driver]) newColorMap[driver] = state.driverColorMap[driver];
+    });
+
+    // Most-constrained first: whoever borders the most others has the fewest
+    // good options, so let them choose before the loners do.
+    const toAssign = sortedDrivers
+        .filter(d => !newColorMap[d])
+        .sort((a, b) => {
+            const da = (adjacency[a] || new Set()).size;
+            const db = (adjacency[b] || new Set()).size;
+            return db - da || a.localeCompare(b);
+        });
+
+    const usedCount = {};
+    ALL_COLORS.forEach(c => { usedCount[c] = 0; });
+    Object.values(newColorMap).forEach(c => { if (c in usedCount) usedCount[c]++; });
+
+    // Score one candidate colour for one driver against whatever their
+// neighbours currently hold. Inner ring counts in full; outer ring at half
+// weight. Reuse across the map is a mild penalty; a neighbour clash is what
+// we actually care about.
+const scoreFor = (driver, candidate) => {
+    const near = [...(adjacency[driver] || [])]
+        .filter(n => n !== driver).map(n => newColorMap[n]).filter(Boolean);
+    const far  = [...(outerAdjacency[driver] || [])]
+        .filter(n => n !== driver).map(n => newColorMap[n]).filter(Boolean);
+    const nearSep = near.length
+        ? Math.min(...near.map(c => perceivedSeparation(candidate, c))) : 999;
+    const farSep = far.length
+        ? Math.min(...far.map(c => perceivedSeparation(candidate, c))) * 2 : 999;
+    const worst = Math.min(nearSep, farSep);
+    const reuse = usedCount[candidate] - (newColorMap[driver] === candidate ? 1 : 0);
+    return worst - reuse * 6;
+};
+
+const pickBest = driver => {
+    let best = null;
+    ALL_COLORS.forEach(candidate => {
+        const score = scoreFor(driver, candidate);
+        if (!best || score > best.score) best = { score, candidate };
+    });
+    return best;
+};
+
+// Greedy first pass, most-constrained first.
+toAssign.forEach(driver => {
+    const best = pickBest(driver);
+    if (best) {
+        newColorMap[driver] = best.candidate;
+        usedCount[best.candidate]++;
+    }
+});
+
+// Refinement: greedy leaves the last-placed drivers holding whatever was
+// left. Now that every neighbourhood is fully coloured, re-examine each
+// driver and switch if something clearly better opened up. A few sweeps
+// settle it; hand-picked colours are never touched.
+for (let sweep = 0; sweep < 4; sweep++) {
+    let changed = 0;
+    toAssign.forEach(driver => {
+        const current = newColorMap[driver];
+        const best = pickBest(driver);
+        if (best && best.candidate !== current &&
+            best.score > scoreFor(driver, current) + 2) {
+            usedCount[current]--;
+            usedCount[best.candidate]++;
+            newColorMap[driver] = best.candidate;
+            changed++;
+        }
+    });
+    if (!changed) break;
+}
+
+sortedDrivers.forEach((driver, index) => {
+        if (newColorMap[driver]) {
+            // already settled above
         } else {
             let hash = 0;
             for (let i = 0; i < driver.length; i++) {
@@ -1386,13 +1583,32 @@ function initMap() {
             attributionControl: true
         });
         
-        const tileUrl = 'https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png';
-        
-        console.log('Loading map tiles: Stamen Toner (High contrast for clear streets)');
-        
+        // Stamen's free tile server was retired, so this fell through to CARTO's
+        // unkeyed endpoint, which now stamps "API KEY REQUIRED" across the map.
+        const tileKey = (CONFIG.TILE_API_KEY || '').trim();
+        const provider = tileKey ? CONFIG.TILE_PROVIDER : 'osm';
+
+        let tileUrl, tileAttribution, tileMaxZoom;
+        if (provider === 'carto') {
+            tileUrl = `https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}.png?key=${tileKey}`;
+            tileAttribution = '&copy; OpenStreetMap contributors &copy; CARTO';
+            tileMaxZoom = 20;
+        } else if (provider === 'stadia') {
+            tileUrl = `https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}{r}.png?api_key=${tileKey}`;
+            tileAttribution = '&copy; Stadia Maps &copy; Stamen Design &copy; OpenStreetMap contributors';
+            tileMaxZoom = 20;
+        } else {
+            tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+            tileAttribution = '&copy; OpenStreetMap contributors';
+            tileMaxZoom = 19;
+        }
+
+        console.log(`Loading map tiles: ${provider}`);
+
         const tileLayer = L.tileLayer(tileUrl, {
-            attribution: 'Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL.',
-            maxZoom: 19,
+            attribution: tileAttribution,
+            subdomains: provider === 'carto' ? 'abcd' : 'abc',
+            maxZoom: tileMaxZoom,
             minZoom: 2,
             errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
         });
@@ -1406,8 +1622,8 @@ function initMap() {
                 console.warn('No tiles loaded - switching to fallback');
                 showNotification('Stamen server not responding, trying fallback...', 'info');
                 
-                fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors © CARTO',
+                fallbackLayer = L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
                     maxZoom: 19
                 });
                 state.map.removeLayer(tileLayer);
@@ -1424,8 +1640,8 @@ function initMap() {
             
             if (!fallbackLayer) {
                 console.log('Switching to fallback map provider (CartoDB Positron)...');
-                fallbackLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-                    attribution: '© OpenStreetMap contributors © CARTO',
+                fallbackLayer = L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
                     maxZoom: 19
                 });
                 state.map.removeLayer(tileLayer);
@@ -2493,6 +2709,7 @@ function resetColors() {
     console.log('Resetting all custom colors');
     state.customColors = {};
     localStorage.removeItem('driverCustomColors');  // Clear localStorage
+    state.driverColorMap = {}; // force a full re-optimisation
     assignDriverColors();
     updateMap();
     showNotification('All custom colors reset', 'success');
