@@ -932,6 +932,10 @@ function getDogId(row) {
     
     if (row['Dog ID'] && row['Dog ID'].trim()) {
         id = row['Dog ID'].trim();
+        // Keep each sheet row distinct even if two rows share a Dog ID,
+        // so selecting one dog can never act on another.
+        const rowIdx = row['_rowIndex'] ?? state.allData.indexOf(row);
+        if (rowIdx >= 0) id = `${id}#${rowIdx}`;
     } else if (row['Dog Name'] && row['Dog Name'].trim()) {
         id = row['Dog Name'].trim();
         const index = row['_rowIndex'] ?? state.allData.indexOf(row);
@@ -1925,7 +1929,10 @@ function updateMap() {
                     row['Dog ID']
                 ].filter(Boolean).join(' ').toLowerCase();
                 
-                if (!searchFields.includes(searchTerm)) {
+                const norm = (t) => t.replace(/[^a-z0-9&]+/g, ' ').trim();
+                const haystack = ' ' + norm(searchFields) + ' ';
+                const words = norm(searchTerm).split(' ').filter(Boolean);
+                if (!words.every(w => haystack.includes(w))) {
                     return false;
                 }
             }
@@ -2056,6 +2063,7 @@ function updateMap() {
                 marker.on('click', function(e) {
                     try {
                         if (state.selectionMode) {
+                            if (state.isDrawing) return; // click was a lasso vertex, not a dog pick
                             e.originalEvent.stopPropagation();
                             const dogId = getDogId(row);
                             if (!dogId) return;
@@ -2178,6 +2186,9 @@ function enableDrawingTools() {
             state.map.addControl(state.drawControl);
         }
 
+        // While a lasso is being drawn, vertex clicks must not toggle dogs.
+        state.map.off('draw:drawstart').on('draw:drawstart', () => { state.isDrawing = true; });
+        state.map.off('draw:drawstop').on('draw:drawstop', () => { state.isDrawing = false; });
         state.map.off('draw:created').on('draw:created', onDrawCreated);
         state.map.off('draw:deleted').on('draw:deleted', onDrawDeleted);
         state.map.off('draw:edited').on('draw:edited', onDrawEdited);
@@ -2190,6 +2201,9 @@ function enableDrawingTools() {
 function disableDrawingTools() {
     try {
         if (state.map) {
+            state.map.off('draw:drawstart');
+            state.map.off('draw:drawstop');
+            state.isDrawing = false;
             state.map.off('draw:created');
             state.map.off('draw:deleted');
             state.map.off('draw:edited');
@@ -2952,7 +2966,9 @@ async function bulkUpdateSelected() {
             return;
         }
         
-        if (!confirm(`Update ${validSelectedRows.length} dogs with driver name: "${newDriverName}"?`)) {
+        const namesPreview = validSelectedRows.map(r => r['Dog Name'] || r['Dog ID'] || '?');
+        const shown = namesPreview.slice(0, 25).join(', ') + (namesPreview.length > 25 ? `, +${namesPreview.length - 25} more` : '');
+        if (!confirm(`Update ${validSelectedRows.length} dogs with driver name: "${newDriverName}"?\n\n${shown}`)) {
             return;
         }
         
